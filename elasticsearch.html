@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Elasticsearch Library – Explained for Kids</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --card:#ffffff; --ink:#2b2d42; --muted:#6c757d;
+    --blue:#3a86ff; --green:#2a9d8f; --orange:#f4a261; --red:#e63946; --purple:#8338ec; --yellow:#ffd166;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  header{background:linear-gradient(135deg,#3a86ff,#8338ec);color:#fff;padding:28px 20px 70px;text-align:center}
+  header h1{margin:0 0 6px;font-size:2rem}
+  header p{margin:0;opacity:.9}
+  nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:-46px auto 20px;max-width:1100px;padding:0 12px}
+  nav button{border:none;background:#fff;color:var(--ink);padding:10px 16px;border-radius:999px;font-size:.95rem;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.12);font-weight:600}
+  nav button.active{background:var(--yellow)}
+  main{max-width:1100px;margin:0 auto;padding:0 16px 60px}
+  section{display:none;animation:fade .3s}
+  section.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .card{background:var(--card);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;box-shadow:0 3px 14px rgba(0,0,0,.07)}
+  h2{margin-top:0}
+  h3{margin:0 0 8px}
+  .btn{border:none;border-radius:10px;padding:9px 14px;font-weight:600;cursor:pointer;color:#fff;background:var(--blue);margin:4px 4px 4px 0;font-size:.92rem}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.green{background:var(--green)} .btn.orange{background:var(--orange)} .btn.red{background:var(--red)} .btn.purple{background:var(--purple)} .btn.grey{background:#8d99ae}
+  .grownup{background:#eef3ff;border-left:5px solid var(--blue);padding:10px 14px;border-radius:8px;font-size:.92rem;margin-top:12px}
+  .warn{background:#fff3e6;border-left:5px solid var(--orange);padding:10px 14px;border-radius:8px;margin-top:10px}
+  .bad{background:#ffe9eb;border-left:5px solid var(--red);padding:10px 14px;border-radius:8px;margin-top:10px}
+  .good{background:#e7f7f3;border-left:5px solid var(--green);padding:10px 14px;border-radius:8px;margin-top:10px}
+  .row{display:flex;flex-wrap:wrap;gap:14px}
+  .stat{background:#f6f7fb;border-radius:12px;padding:8px 14px;font-weight:600}
+  .stat span{color:var(--purple)}
+
+  /* Hierarchy */
+  .ladder{display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:center;margin:10px 0}
+  .rung{cursor:pointer;background:#f6f7fb;border:3px solid transparent;border-radius:14px;padding:12px 14px;text-align:center;min-width:120px;transition:.2s}
+  .rung:hover{transform:translateY(-3px)}
+  .rung.sel{border-color:var(--purple);background:#f1e9ff}
+  .rung .emo{font-size:2rem;display:block}
+  .arrow{font-size:1.4rem;color:var(--muted)}
+  #rungInfo{min-height:110px}
+
+  /* Segments */
+  .box{border:3px dashed #c9a66b;background:#fff8ea;border-radius:14px;padding:12px;min-height:120px}
+  .segments{display:flex;flex-wrap:wrap;gap:10px}
+  .segment{background:#fff;border:2px solid #b5838d;border-radius:8px;padding:6px;min-width:70px}
+  .segment .lbl{font-size:.72rem;color:var(--muted);margin-bottom:4px}
+  .page{display:inline-block;margin:2px;padding:3px 7px;border-radius:6px;background:#e0ecff;font-size:.8rem;cursor:pointer;user-select:none;position:relative}
+  .page.deleted{background:#f2f2f2;color:#aaa;text-decoration:line-through}
+  .page.deleted::after{content:"❌";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:.9rem}
+  .page.new{background:#d8f5e8}
+
+  /* Search journey */
+  .journey{display:grid;grid-template-columns:1fr;gap:14px}
+  .actors{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+  .actor{text-align:center;background:#f6f7fb;border-radius:14px;padding:10px;min-width:150px;border:3px solid transparent;transition:.25s}
+  .actor.lit{border-color:var(--orange);background:#fff4e6;box-shadow:0 0 0 4px rgba(244,162,97,.25)}
+  .actor .emo{font-size:2rem}
+  .notes{min-height:70px;font-size:.8rem}
+  .sticky{display:inline-block;background:var(--yellow);padding:2px 6px;margin:2px;border-radius:4px;box-shadow:1px 1px 0 rgba(0,0,0,.15)}
+  .sticky.win{background:#90e0a0;font-weight:700}
+  .fullpage{display:inline-block;background:#fff;border:2px solid var(--green);padding:4px 8px;margin:3px;border-radius:6px}
+  .stepper{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
+  .dot{width:30px;height:30px;border-radius:50%;background:#e2e2e2;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer}
+  .dot.on{background:var(--orange);color:#fff}
+  .dot.done{background:var(--green);color:#fff}
+  #stepText{font-size:1.05rem;min-height:70px}
+
+  /* Shards */
+  .nodes{display:flex;gap:12px;flex-wrap:wrap}
+  .node{background:#f1f5ff;border-radius:14px;padding:10px;min-width:150px;flex:1}
+  .node h4{margin:0 0 6px}
+  .shard{display:inline-block;margin:3px;padding:6px 8px;border-radius:8px;background:#ffe8c2;border:2px solid #e0a458;font-size:.78rem;text-align:center}
+  .shard.rep{background:#eee;border-style:dashed;border-color:#999}
+  .meter{height:16px;background:#eee;border-radius:8px;overflow:hidden;margin:4px 0 2px}
+  .meter div{height:100%;background:linear-gradient(90deg,var(--green),var(--orange),var(--red));transition:width .4s}
+  label.inl{display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-weight:600}
+  input[type=number]{width:70px;padding:6px;border-radius:8px;border:1px solid #ccc}
+  input[type=range]{vertical-align:middle}
+
+  /* Search vs scroll */
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:800px){.two{grid-template-columns:1fr}}
+  .results{min-height:60px;margin-top:8px}
+  .chip{display:inline-block;background:#e0ecff;padding:3px 8px;margin:2px;border-radius:999px;font-size:.78rem}
+  .chip.fresh{background:#d8f5e8;font-weight:700}
+  .ticket{display:inline-block;background:#ffe3f1;border:2px dashed #e75a9b;padding:6px 12px;border-radius:10px;font-weight:700}
+  .timer{height:10px;background:#eee;border-radius:6px;overflow:hidden;margin:6px 0}
+  .timer div{height:100%;background:#e75a9b;transition:width 1s linear}
+  .notebooks{font-size:1.4rem;letter-spacing:2px}
+
+  table{border-collapse:collapse;width:100%}
+  th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+  th{background:#f6f7fb}
+  .quiz-q{margin:14px 0 6px;font-weight:600}
+  .opt{display:block;width:100%;text-align:left;background:#f6f7fb;border:2px solid transparent;border-radius:10px;padding:8px 12px;margin:4px 0;cursor:pointer;font-size:.95rem}
+  .opt.right{border-color:var(--green);background:#e7f7f3}
+  .opt.wrong{border-color:var(--red);background:#ffe9eb}
+  .fb{font-size:.9rem;min-height:1.2em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📚 The Elasticsearch Library</h1>
+  <p>A giant library run by super-fast librarians. Click, play and explore!</p>
+</header>
+
+<nav id="tabs">
+  <button data-tab="t1" class="active">1. The Library</button>
+  <button data-tab="t2">2. Notebooks (Segments)</button>
+  <button data-tab="t3">3. A Search's Journey</button>
+  <button data-tab="t4">4. Adding More Boxes</button>
+  <button data-tab="t5">5. Search vs Scroll</button>
+  <button data-tab="t6">6. Quiz &amp; Cheat Sheet</button>
+</nav>
+
+<main>
+
+<!-- ================= 1. LIBRARY ================= -->
+<section id="t1" class="active">
+  <div class="card">
+    <h2>🏛️ How the library is organised</h2>
+    <p>Click each step to find out what it is.</p>
+    <div class="ladder" id="ladder"></div>
+    <div class="card" id="rungInfo" style="background:#faf7ff;box-shadow:none"></div>
+  </div>
+  <div class="card">
+    <h3>🧩 Build the library</h3>
+    <p>Add Pokémon pages and watch where they go. Each page always goes into the same box, using the head librarian's rule.</p>
+    <button class="btn green" id="addCard">➕ Add a Pokémon page</button>
+    <button class="btn grey" id="resetLib">↺ Reset</button>
+    <div class="row" style="margin-top:10px" id="libBoxes"></div>
+    <div class="grownup" id="routeNote">Grown-up term: the rule is <b>shard routing</b>, roughly <code>shard = hash(_id) % number_of_primary_shards</code>.</div>
+  </div>
+</section>
+
+<!-- ================= 2. SEGMENTS ================= -->
+<section id="t2">
+  <div class="card">
+    <h2>📓 The notebooks inside one box</h2>
+    <p>Inside each box, pages are written into small notebooks called <b>segments</b>. The rules:</p>
+    <ul>
+      <li><b>You can never rub anything out.</b> New pages always go into a brand-new small notebook.</li>
+      <li><b>Deleting means crossing out.</b> Click a page to give it a big ❌. It still takes up space!</li>
+      <li><b>Tidy-up time.</b> Merging copies all the good pages into one neat notebook and throws the old ones away.</li>
+    </ul>
+    <button class="btn green" id="segAdd">➕ Add a page</button>
+    <button class="btn green" id="segAdd5">➕ Add 5 pages</button>
+    <button class="btn purple" id="segMerge">🧹 Tidy up (merge)</button>
+    <button class="btn grey" id="segReset">↺ Reset</button>
+    <div class="row" style="margin:12px 0">
+      <div class="stat">Notebooks: <span id="sNb">0</span></div>
+      <div class="stat">Good pages: <span id="sLive">0</span></div>
+      <div class="stat">Crossed-out pages (wasted space): <span id="sDel">0</span></div>
+    </div>
+    <div class="box"><div class="segments" id="segArea"></div></div>
+    <div id="segMsg"></div>
+    <div class="grownup">Grown-up terms: segments are <b>immutable</b> Lucene files. Deletes are <b>soft deletes</b> (tombstones), and merging reclaims the space. <code>POST my-index/_forcemerge?only_expunge_deletes=true</code> forces a tidy-up.</div>
+  </div>
+</section>
+
+<!-- ================= 3. SEARCH JOURNEY ================= -->
+<section id="t3">
+  <div class="card">
+    <h2>🚶 How a search travels through the boxes</h2>
+    <p>Question: <b>"Find me the 3 strongest fire-type Pokémon!"</b> Step through the journey.</p>
+    <div class="stepper" id="dots"></div>
+    <div id="stepText"></div>
+    <div class="journey">
+      <div class="actors">
+        <div class="actor" id="aYou"><div class="emo">🙋</div><b>You</b><div class="notes" id="nYou"></div></div>
+        <div class="actor" id="aHead"><div class="emo">👩‍🏫</div><b>Head librarian</b><div class="notes" id="nHead"></div></div>
+      </div>
+      <div class="actors" id="boxActors"></div>
+    </div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="btn grey" id="prevStep">◀ Back</button>
+      <button class="btn orange" id="nextStep">Next ▶</button>
+      <button class="btn purple" id="autoStep">▶ Play all</button>
+    </div>
+    <div class="grownup">Grown-up terms: the head librarian is the <b>coordinating node</b>. Steps 3 to 5 are the <b>query phase</b> and step 6 is the <b>fetch phase</b>. Each shard question goes to either the primary or a replica.</div>
+  </div>
+</section>
+
+<!-- ================= 4. ADDING SHARDS ================= -->
+<section id="t4">
+  <div class="card">
+    <h2>📦 Adding more boxes (shards)</h2>
+    <p>You can't just add a box to an existing collection, because it would break the "page 42 goes in Box 2" rule. You have to <b>split</b> the boxes or <b>move everything</b> to a new collection.</p>
+    <div class="row">
+      <label class="inl">📄 Pages in collection
+        <input type="range" id="pagesR" min="10000" max="5000000" step="10000" value="1000000">
+        <span id="pagesV"></span></label>
+    </div>
+    <div style="margin-top:8px">
+      <label class="inl">👩‍🏫 Librarians (nodes)
+        <button class="btn grey" id="nodeMinus">−</button><b id="nodeV">2</b><button class="btn grey" id="nodePlus">+</button></label>
+      <label class="inl">📸 Photocopies per box (replicas)
+        <button class="btn grey" id="repMinus">−</button><b id="repV">1</b><button class="btn grey" id="repPlus">+</button></label>
+    </div>
+    <div style="margin-top:8px">
+      <b>Boxes right now: <span id="shardV">2</span></b><br>
+      <button class="btn orange" id="split2">✂️ Split ×2</button>
+      <button class="btn orange" id="split3">✂️ Split ×3</button>
+      <label class="inl">🚚 Move to a new collection with
+        <input type="number" id="reN" min="1" max="64" value="5"> boxes
+        <button class="btn purple" id="reindex">Move it!</button></label>
+      <button class="btn grey" id="shardReset">↺ Reset</button>
+    </div>
+    <div class="row" style="margin:12px 0">
+      <div class="stat">Pages per box: <span id="ppb"></span></div>
+      <div class="stat">Boxes per librarian: <span id="bpl"></span></div>
+      <div class="stat">Search effort: <span id="effort"></span></div>
+    </div>
+    <div class="meter"><div id="effortBar"></div></div>
+    <div id="shardMsg"></div>
+    <div class="nodes" id="nodeArea" style="margin-top:12px"></div>
+    <div class="grownup">Grown-up terms: <b>Split</b> is <code>POST src/_split/target</code> and needs a whole-number multiple (the index must be read-only first). <b>Reindex</b> is <code>POST _reindex</code> into a new index with any shard count. Replicas can be changed live with <code>PUT my-index/_settings {"number_of_replicas": 2}</code>. A common rule of thumb is roughly 10 to 50 GB per shard.</div>
+  </div>
+</section>
+
+<!-- ================= 5. SEARCH VS SCROLL ================= -->
+<section id="t5">
+  <div class="card">
+    <h2>🔍 Search vs 📜 Scroll</h2>
+    <p>The library has <b id="liveCount">0</b> fire-type pages. Try both ways of reading them.</p>
+    <button class="btn green" id="addLive">➕ Someone adds a new fire Pokémon page</button>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>🔍 Search: "Show me the best ones!"</h3>
+      <p>Get 10 pages at a time, always fresh.</p>
+      <label class="inl">Jump to results page <input type="number" id="pgNum" min="1" value="1"></label>
+      <button class="btn" id="doSearch">Search</button>
+      <div class="results" id="searchRes"></div>
+      <div>Sticky notes sorted to answer this (3 boxes): <b id="sortCost">0</b></div>
+      <div class="meter"><div id="sortBar"></div></div>
+      <div id="searchMsg"></div>
+      <div class="grownup">Try jumping to page 1001. That's past result 10,000, which a normal search refuses (<code>index.max_result_window</code>).</div>
+    </div>
+    <div class="card">
+      <h3>📜 Scroll: "Give me ALL of them, bit by bit"</h3>
+      <p>The head librarian takes a 📸 photo and gives you a 🎟️ ticket.</p>
+      <button class="btn purple" id="scStart">📸 Start scroll</button>
+      <button class="btn purple" id="scNext" disabled>🎟️ Next bundle</button>
+      <button class="btn red" id="scClear" disabled>↩️ Give ticket back</button>
+      <div style="margin-top:8px" id="ticketArea"></div>
+      <div class="timer"><div id="timerBar" style="width:0"></div></div>
+      <div class="results" id="scrollRes"></div>
+      <div style="margin-top:6px">Old notebooks the librarians can't throw away: <span class="notebooks" id="heldNb"></span></div>
+      <div id="scrollMsg"></div>
+      <div class="grownup">Ticket = <code>scroll_id</code>, timer = keep-alive (e.g. <code>scroll=1m</code>), give back = <code>DELETE _search/scroll</code>. On 7.10+, Elastic recommends <b>Point in Time + <code>search_after</code></b> for deep paging.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 6. QUIZ & CHEAT SHEET ================= -->
+<section id="t6">
+  <div class="card">
+    <h2>🧠 Quick quiz</h2>
+    <div id="quiz"></div>
+    <p><b>Score: <span id="score">0</span> / <span id="qTotal">0</span></b></p>
+  </div>
+  <div class="card">
+    <h2>📋 Cheat sheet</h2>
+    <table>
+      <tr><th>Library word</th><th>Elasticsearch word</th><th>What it means</th></tr>
+      <tr><td>🏛️ Library</td><td>Cluster</td><td>The whole system</td></tr>
+      <tr><td>👩‍🏫 Librarian</td><td>Node</td><td>One server doing the work</td></tr>
+      <tr><td>👩‍🏫 Head librarian</td><td>Coordinating node</td><td>Sends your question out and gathers the answers</td></tr>
+      <tr><td>📚 Collection</td><td>Index</td><td>A group of similar documents</td></tr>
+      <tr><td>📦 Box</td><td>Primary shard</td><td>One slice of an index</td></tr>
+      <tr><td>📸 Photocopy of a box</td><td>Replica shard</td><td>A backup copy that can also answer searches</td></tr>
+      <tr><td>📓 Notebook</td><td>Segment</td><td>Write-once file inside a shard</td></tr>
+      <tr><td>📄 Page</td><td>Document</td><td>One JSON record with an <code>_id</code></td></tr>
+      <tr><td>❌ Crossed-out page</td><td>Deleted doc</td><td>Hidden, but uses space until a merge</td></tr>
+      <tr><td>🧹 Tidy-up</td><td>Merge / force merge</td><td>Combines segments and removes deleted docs</td></tr>
+      <tr><td>📝 Sticky notes</td><td>Query phase</td><td>Each shard returns IDs + scores</td></tr>
+      <tr><td>📄 Fetching pages</td><td>Fetch phase</td><td>Get full docs for the winners only</td></tr>
+      <tr><td>✂️ Splitting boxes</td><td>Split API</td><td>Multiply shards by a whole number</td></tr>
+      <tr><td>🚚 Moving collection</td><td>Reindex</td><td>Copy into a new index with any shard count</td></tr>
+      <tr><td>📸🎟️ Photo + ticket</td><td>Scroll / PIT + search_after</td><td>Read everything from a frozen view</td></tr>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<script>
+/* ---------- Tabs ---------- */
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+  b.classList.add('active'); document.getElementById(b.dataset.tab).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+const $=id=>document.getElementById(id);
+const POKE=["Charmander","Charmeleon","Charizard","Vulpix","Ninetales","Growlithe","Arcanine","Ponyta","Rapidash","Magmar","Flareon","Moltres","Cyndaquil","Quilava","Typhlosion","Slugma","Magcargo","Houndour","Houndoom","Torchic","Combusken","Blaziken","Numel","Camerupt","Torkoal","Chimchar","Monferno","Infernape","Litleo","Pyroar","Fennekin","Braixen","Delphox","Litten","Torracat","Incineroar","Scorbunny","Raboot","Cinderace","Sizzlipede"];
+const OTHER=["Pikachu","Bulbasaur","Squirtle","Eevee","Snorlax","Gengar","Jigglypuff","Psyduck","Machop","Onix","Lapras","Mewtwo","Togepi","Lucario","Gyarados"];
+
+/* ---------- 1. Library ladder ---------- */
+const rungs=[
+  {e:"🏛️",n:"Library",g:"Cluster",t:"The <b>whole library</b>, with all its rooms and all its librarians (servers) working together."},
+  {e:"📚",n:"Collection",g:"Index",t:"A <b>collection</b> of similar pages, e.g. one for Pokémon cards and one for football players. When you search, you choose which collection to look in."},
+  {e:"📦",n:"Boxes",g:"Shards",t:"A big collection is split into <b>boxes</b>. Different librarians search different boxes <b>at the same time</b>, so it's faster. Each box also has <b>photocopies</b> (replicas) in case one gets lost."},
+  {e:"📓",n:"Notebooks",g:"Segments",t:"Inside each box, pages are written in <b>notebooks</b>. You can never rub anything out. Deleted pages are just crossed out until tidy-up time (merging)."},
+  {e:"📄",n:"Pages",g:"Documents",t:"One <b>page</b> = one thing, like one Pokémon card with its name, type and power. Every page has its own ID number."}
+];
+const ladder=$('ladder');
+rungs.forEach((r,i)=>{
+  const d=document.createElement('div');d.className='rung';d.innerHTML=`<span class="emo">${r.e}</span><b>${r.n}</b><br><small>${r.g}</small>`;
+  d.onclick=()=>{document.querySelectorAll('.rung').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');
+    $('rungInfo').innerHTML=`<h3>${r.e} ${r.n} <small style="color:#8338ec">(grown-ups say: ${r.g})</small></h3><p>${r.t}</p>`;};
+  ladder.appendChild(d);
+  if(i<rungs.length-1){const a=document.createElement('span');a.className='arrow';a.textContent='→';ladder.appendChild(a);}
+});
+ladder.querySelector('.rung').click();
+
+let libPages=[], libId=1; const LIB_SHARDS=3;
+function hash(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return h;}
+function renderLib(){
+  const area=$('libBoxes');area.innerHTML='';
+  for(let s=0;s<LIB_SHARDS;s++){
+    const pages=libPages.filter(p=>p.shard===s);
+    const b=document.createElement('div');b.className='box';b.style.flex='1';b.style.minWidth='200px';
+    b.innerHTML=`<b>📦 Box ${s+1}</b> <small>(${pages.length} pages)</small><br>`+pages.map(p=>`<span class="page ${p.fresh?'new':''}">#${p.id} ${p.name}</span>`).join('');
+    area.appendChild(b);
+  }
+}
+$('addCard').onclick=()=>{
+  libPages.forEach(p=>p.fresh=false);
+  const all=POKE.concat(OTHER);const name=all[Math.floor(Math.random()*all.length)];
+  const id=libId++;const shard=hash(id)%LIB_SHARDS;
+  libPages.push({id,name,shard,fresh:true});renderLib();
+  $('routeNote').innerHTML=`Page <b>#${id}</b> → rule says <b>Box ${shard+1}</b>. Ask again tomorrow and the rule still says Box ${shard+1}. <br>Grown-up term: <b>shard routing</b>, roughly <code>shard = hash(_id) % number_of_primary_shards</code>.`;
+};
+$('resetLib').onclick=()=>{libPages=[];libId=1;renderLib();};
+renderLib();
+
+/* ---------- 2. Segments ---------- */
+let segs=[], segId=1, mergeCount=0;
+function segAdd(n){
+  const seg=[];for(let i=0;i<n;i++)seg.push({id:segId,name:POKE[(segId-1)%POKE.length],del:false}),segId++;
+  segs.push(seg);renderSegs();
+}
+function renderSegs(){
+  const a=$('segArea');a.innerHTML='';
+  segs.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='segment';
+    d.innerHTML=`<div class="lbl">📓 Notebook ${i+1}</div>`;
+    s.forEach(p=>{const sp=document.createElement('span');sp.className='page'+(p.del?' deleted':'');sp.textContent=p.name;
+      sp.title=p.del?'Already crossed out':'Click to delete (cross out)';
+      sp.onclick=()=>{if(!p.del){p.del=true;renderSegs();}};d.appendChild(sp);});
+    a.appendChild(d);
+  });
+  const live=segs.flat().filter(p=>!p.del).length, del=segs.flat().filter(p=>p.del).length;
+  $('sNb').textContent=segs.length;$('sLive').textContent=live;$('sDel').textContent=del;
+  let msg='';
+  if(segs.length>=6) msg+=`<div class="warn">😵 ${segs.length} little notebooks! The librarian has to flick through every one on each search. Time to tidy up?</div>`;
+  if(del>0) msg+=`<div class="warn">❌ ${del} crossed-out page(s) are still taking up space on the shelf.</div>`;
+  $('segMsg').innerHTML=msg;
+}
+$('segAdd').onclick=()=>segAdd(1);
+$('segAdd5').onclick=()=>{for(let i=0;i<5;i++)segAdd(1);};
+$('segMerge').onclick=()=>{
+  const before=segs.length, del=segs.flat().filter(p=>p.del).length;
+  const live=segs.flat().filter(p=>!p.del);
+  segs=live.length?[live]:[];renderSegs();
+  $('segMsg').innerHTML=`<div class="good">🧹 Tidied ${before} notebook(s) into ${segs.length}, and threw away ${del} crossed-out page(s). Space freed!</div>`;
+};
+$('segReset').onclick=()=>{segs=[];segId=1;segAdd(4);segAdd(3);segAdd(1);};
+$('segReset').click();
+
+/* ---------- 3. Search journey ---------- */
+const boxesData=[
+  [{n:"Charizard",s:95},{n:"Vulpix",s:40},{n:"Moltres",s:90},{n:"Ponyta",s:45},{n:"Magmar",s:70}],
+  [{n:"Arcanine",s:88},{n:"Flareon",s:65},{n:"Growlithe",s:42},{n:"Typhlosion",s:84},{n:"Slugma",s:30}],
+  [{n:"Blaziken",s:92},{n:"Torchic",s:35},{n:"Infernape",s:86},{n:"Houndoom",s:75},{n:"Numel",s:28}]
+];
+const top3=b=>[...b].sort((x,y)=>y.s-x.s).slice(0,3);
+const allNotes=boxesData.flatMap((b,i)=>top3(b).map(p=>({...p,box:i})));
+const winners=[...allNotes].sort((x,y)=>y.s-x.s).slice(0,3);
+const steps=[
+  {t:"<b>1. You ask a question</b> 🙋 Your question goes to the <b>head librarian</b>.",lit:['aYou','aHead']},
+  {t:"<b>2. Messengers go out</b> 📨 The head librarian sends a copy of the question to <b>every box</b>. Only the original <i>or</i> the photocopy needs to answer, so the work is shared.",lit:['aHead','b0','b1','b2']},
+  {t:"<b>3. Everyone searches at the same time</b> 🔍 Each librarian flicks through their own notebooks, skips ❌ pages, and picks <b>their own top 3</b>.",lit:['b0','b1','b2']},
+  {t:"<b>4. Sticky notes, not pages</b> 📝 Each box sends back just <b>page names + scores</b>. The heavy pages stay put.",lit:['b0','b1','b2','aHead']},
+  {t:"<b>5. Pick the winners</b> 🏆 The head librarian sorts all 9 sticky notes and keeps the <b>overall top 3</b>.",lit:['aHead']},
+  {t:"<b>6. Fetch the real pages</b> 📄 Only the boxes holding a winner are asked: \"Send me the real page, please!\"",lit:['aHead']},
+  {t:"<b>7. You get your answer</b> 🎉 All in a split second!",lit:['aYou']}
+];
+let step=0,auto=null;
+const ba=$('boxActors');
+boxesData.forEach((b,i)=>{const d=document.createElement('div');d.className='actor';d.id='b'+i;
+  d.innerHTML=`<div class="emo">📦</div><b>Box ${i+1}</b><div class="notes" id="nb${i}"></div>`;ba.appendChild(d);});
+steps.forEach((s,i)=>{const d=document.createElement('div');d.className='dot';d.textContent=i+1;d.onclick=()=>{step=i;renderStep();};$('dots').appendChild(d);});
+function renderStep(){
+  document.querySelectorAll('.dot').forEach((d,i)=>d.className='dot'+(i===step?' on':i<step?' done':''));
+  $('stepText').innerHTML=steps[step].t;
+  ['aYou','aHead','b0','b1','b2'].forEach(id=>$(id).classList.toggle('lit',steps[step].lit.includes(id)));
+  $('nYou').innerHTML= step===0?'"Top 3 strongest fire Pokémon!"': step===6? winners.map(w=>`<span class="fullpage">📄 ${w.n}</span>`).join('') : '';
+  let head='';
+  if(step===0) head='📩 Got the question';
+  if(step===1||step===2) head='📨📨📨 Sent to every box';
+  if(step===3) head=allNotes.map(n=>`<span class="sticky">${n.n} ${n.s}</span>`).join('');
+  if(step===4) head=[...allNotes].sort((x,y)=>y.s-x.s).map(n=>`<span class="sticky ${winners.includes(n)?'win':''}">${n.n} ${n.s}</span>`).join('');
+  if(step===5) head=winners.map(w=>`<span class="sticky win">${w.n} → Box ${w.box+1}</span>`).join('');
+  if(step===6) head='✅ Done';
+  $('nHead').innerHTML=head;
+  boxesData.forEach((b,i)=>{
+    let h='';
+    if(step===1) h='📩 Question arrived';
+    if(step===2) h=b.map(p=>`<span class="sticky" style="background:#e0ecff">${p.n} ${p.s}</span>`).join('')+'<br>⬇ my top 3:<br>'+top3(b).map(p=>`<span class="sticky">${p.n} ${p.s}</span>`).join('');
+    if(step===3) h='📝 Sent: '+top3(b).map(p=>`<span class="sticky">${p.n} ${p.s}</span>`).join('');
+    if(step===5){const w=winners.filter(x=>x.box===i);h=w.length?w.map(x=>`<span class="fullpage">📄 ${x.n}</span>`).join('')+'<br>sending!':'😴 No winners here, nothing to send';}
+    $('nb'+i).innerHTML=h;
+  });
+  $('prevStep').disabled=step===0;$('nextStep').disabled=step===steps.length-1;
+}
+$('nextStep').onclick=()=>{if(step<steps.length-1){step++;renderStep();}};
+$('prevStep').onclick=()=>{if(step>0){step--;renderStep();}};
+$('autoStep').onclick=()=>{clearInterval(auto);step=0;renderStep();auto=setInterval(()=>{if(step<steps.length-1){step++;renderStep();}else clearInterval(auto);},2200);};
+renderStep();
+
+/* ---------- 4. Adding shards ---------- */
+let shards=2,nodes=2,reps=1;
+const fmt=n=>n.toLocaleString('en-GB');
+function renderShards(){
+  const pages=+$('pagesR').value;$('pagesV').textContent=fmt(pages);
+  $('shardV').textContent=shards;$('nodeV').textContent=nodes;$('repV').textContent=reps;
+  const ppb=Math.round(pages/shards);const bpl=Math.ceil(shards/nodes);
+  $('ppb').textContent=fmt(ppb);$('bpl').textContent=bpl;
+  // effort: biggest librarian's reading load + overhead per box
+  const work=(pages/shards)*Math.min(bpl,Math.max(1,shards/nodes))/1000 + shards*15;
+  const pct=Math.min(100,work/30);
+  $('effort').textContent=work<200?'⚡ Fast':work<800?'🙂 OK':work<1800?'🐢 Slow':'🐌 Very slow';
+  $('effortBar').style.width=pct+'%';
+  let msg='';
+  if(ppb>400000) msg+=`<div class="warn">🏋️ Each box has ${fmt(ppb)} pages, which is very heavy! Try splitting or moving to more boxes.</div>`;
+  if(shards>nodes*3) msg+=`<div class="warn">👩‍🏫 Only ${nodes} librarian(s) for ${shards} boxes. Each one searches ${bpl} boxes alone, so extra boxes don't help much. Add librarians!</div>`;
+  if(ppb<20000 && shards>4) msg+=`<div class="bad">📦📦📦😵 Lots of tiny boxes (${fmt(ppb)} pages each). The librarians spend all their time managing boxes instead of reading.</div>`;
+  if(reps>=nodes) msg+=`<div class="warn">📸 A photocopy can't sit with its own original, so with ${nodes} librarian(s) some photocopies have nowhere to go (they stay <i>unassigned</i>).</div>`;
+  if(!msg) msg='<div class="good">👍 Nice balance: boxes that are not too heavy and not too tiny, with enough librarians.</div>';
+  $('shardMsg').innerHTML=msg;
+  // place shards on nodes
+  const na=$('nodeArea');na.innerHTML='';
+  const nodeLists=Array.from({length:nodes},()=>[]);
+  for(let s=0;s<shards;s++){
+    nodeLists[s%nodes].push(`<span class="shard">📦 Box ${s+1}<br>${fmt(ppb)}</span>`);
+    for(let r=1;r<=reps;r++){
+      if(r<nodes) nodeLists[(s+r)%nodes].push(`<span class="shard rep">📸 Copy of ${s+1}</span>`);
+    }
+  }
+  nodeLists.forEach((l,i)=>{const d=document.createElement('div');d.className='node';d.innerHTML=`<h4>👩‍🏫 Librarian ${i+1}</h4>${l.join('')}`;na.appendChild(d);});
+  const unassigned=Math.max(0,reps-(nodes-1))*shards;
+  if(unassigned) {const d=document.createElement('div');d.className='node';d.style.background='#ffe9eb';d.innerHTML=`<h4>🚫 No shelf</h4>${unassigned} photocopies waiting`;na.appendChild(d);}
+}
+function shardMsg(html){renderShards();$('shardMsg').innerHTML=html+$('shardMsg').innerHTML;}
+$('pagesR').oninput=renderShards;
+$('nodePlus').onclick=()=>{if(nodes<8){nodes++;renderShards();}};
+$('nodeMinus').onclick=()=>{if(nodes>1){nodes--;renderShards();}};
+$('repPlus').onclick=()=>{if(reps<3){reps++;shardMsg('<div class="good">📸 Added a photocopy instantly. No repacking needed!</div>');}};
+$('repMinus').onclick=()=>{if(reps>0){reps--;shardMsg('<div class="good">📸 Removed a photocopy instantly.</div>');}};
+$('split2').onclick=()=>{if(shards*2<=64){shards*=2;shardMsg(`<div class="good">✂️ Quick split! Each box was cut into 2. Now ${shards} boxes.</div>`);}};
+$('split3').onclick=()=>{if(shards*3<=64){shards*=3;shardMsg(`<div class="good">✂️ Quick split! Each box was cut into 3. Now ${shards} boxes.</div>`);}};
+$('reindex').onclick=()=>{
+  const n=Math.max(1,Math.min(64,+$('reN').value||1));
+  const old=shards;shards=n;
+  shardMsg(`<div class="good">🚚 Made a new collection with ${n} boxes and copied every page across. Slower, but any number works${n%old!==0?` (a split couldn't get from ${old} to ${n})`:''}.</div>`);
+};
+$('shardReset').onclick=()=>{shards=2;nodes=2;reps=1;$('pagesR').value=1000000;renderShards();};
+renderShards();
+
+/* ---------- 5. Search vs scroll ---------- */
+let live=[];let nextFire=0;
+function addLivePage(fresh){
+  const name=POKE[nextFire%POKE.length]+(nextFire>=POKE.length?' '+(Math.floor(nextFire/POKE.length)+1):'');
+  live.push({id:nextFire+1,name,fresh});nextFire++;
+}
+for(let i=0;i<35;i++)addLivePage(false);
+let scroll=null,timerI=null;const KEEP=30,BUNDLE=10;
+function updLive(){$('liveCount').textContent=live.length;}
+$('addLive').onclick=()=>{
+  live.forEach(p=>p.fresh=false);addLivePage(true);updLive();
+  if(scroll){scroll.held++;renderHeld();
+    $('scrollMsg').innerHTML=`<div class="warn">📸 A new page was added, but your scroll uses the photo, so you <b>won't</b> see it. (Photo: ${scroll.snap.length} pages, library now: ${live.length})</div>`;}
+  if($('searchRes').innerHTML) doSearch();
+};
+function doSearch(){
+  const pg=Math.max(1,+$('pgNum').value||1);const from=(pg-1)*10;
+  const cost=3*(from+10);$('sortCost').textContent=fmt(cost);
+  $('sortBar').style.width=Math.min(100,cost/300)+'%';
+  if(from+10>10000){
+    $('searchRes').innerHTML='';
+    $('searchMsg').innerHTML=`<div class="bad">🚫 Refused! Page ${fmt(pg)} means results ${fmt(from+1)}–${fmt(from+10)}. That's past 10,000, so every librarian would have to sort ${fmt(from+10)} notes just to throw most away. Use a scroll instead!</div>`;return;
+  }
+  const res=live.slice(from,from+10);
+  $('searchRes').innerHTML=res.length?res.map(p=>`<span class="chip ${p.fresh?'fresh':''}">📄 ${p.name}</span>`).join(''):'<i>No pages here, so the library is smaller than that.</i>';
+  $('searchMsg').innerHTML=pg>1?`<div class="warn">To show page ${pg}, each of the 3 boxes had to sort its top ${from+10} first. The deeper you go, the more work it is 😩</div>`:'<div class="good">⚡ Quick and fresh! New pages show up straight away (shown in green).</div>';
+}
+$('doSearch').onclick=doSearch;
+function renderHeld(){$('heldNb').textContent=scroll?'📓'.repeat(Math.min(scroll.held,20))+(scroll.held?'':' none yet'):' none';}
+function startTimer(){
+  clearInterval(timerI);scroll.left=KEEP;tick();
+  timerI=setInterval(()=>{scroll.left--;tick();if(scroll.left<=0){clearInterval(timerI);expire();}},1000);
+}
+function tick(){$('timerBar').style.width=(scroll.left/KEEP*100)+'%';$('ticketArea').innerHTML=`<span class="ticket">🎟️ Ticket #${scroll.tid}</span> expires in <b>${scroll.left}s</b> unless you come back`;}
+function expire(){
+  $('scrollMsg').innerHTML='<div class="bad">⌛ Your ticket ran out! The head librarian threw your photo away. Start again.</div>';
+  endScroll(false);
+}
+function endScroll(returned){
+  clearInterval(timerI);
+  if(returned)$('scrollMsg').innerHTML=`<div class="good">↩️ Thanks for returning your ticket! ${scroll.held} old notebook(s) can now be tidied away. 🧹</div>`;
+  scroll=null;$('ticketArea').innerHTML='';$('timerBar').style.width='0';
+  $('scNext').disabled=true;$('scClear').disabled=true;$('scStart').disabled=false;renderHeld();
+}
+$('scStart').onclick=()=>{
+  scroll={snap:live.map(p=>({...p})),pos:0,tid:Math.floor(Math.random()*9000+1000),held:0,bundle:0};
+  $('scrollRes').innerHTML='';$('scrollMsg').innerHTML=`<div class="good">📸 Photo taken of ${scroll.snap.length} pages. Grab your first bundle!</div>`;
+  $('scNext').disabled=false;$('scClear').disabled=false;$('scStart').disabled=true;startTimer();renderHeld();
+};
+$('scNext').onclick=()=>{
+  if(!scroll)return;
+  const b=scroll.snap.slice(scroll.pos,scroll.pos+BUNDLE);scroll.pos+=BUNDLE;scroll.bundle++;
+  if(!b.length){$('scrollRes').innerHTML+='<div><b>Empty bundle, so you have every page! Now give the ticket back.</b></div>';$('scNext').disabled=true;startTimer();return;}
+  $('scrollRes').innerHTML+=`<div><b>Bundle ${scroll.bundle}:</b> ${b.map(p=>`<span class="chip">${p.name}</span>`).join('')}</div>`;
+  startTimer();
+};
+$('scClear').onclick=()=>endScroll(true);
+updLive();renderHeld();
+
+/* ---------- 6. Quiz ---------- */
+const Q=[
+  {q:"In the library, what is a shard?",o:["A single page","A box holding part of a collection","The whole library"],a:1,e:"A shard is a box. Each box holds part of a collection."},
+  {q:"What happens when you delete a page?",o:["It's rubbed out right away","It gets crossed out ❌ and is cleaned up at tidy-up time","It moves to another box"],a:1,e:"Notebooks can't be rubbed out. Pages are crossed out until a merge."},
+  {q:"Why do librarians send sticky notes before full pages?",o:["Sticky notes are prettier","So only the winning pages ever get carried around","Because pages are secret"],a:1,e:"Sticky notes (IDs + scores) are light. Only winners get fetched."},
+  {q:"You have 2 boxes. Which can you get by SPLITTING?",o:["5 boxes","3 boxes","6 boxes"],a:2,e:"Splitting only works by whole numbers: 2 → 4, 6, 8…"},
+  {q:"Which can you change any time without repacking?",o:["Number of boxes","Number of photocopies","The routing rule"],a:1,e:"Replicas (photocopies) can be added or removed live."},
+  {q:"You need to copy ALL 2 million pages. Which do you use?",o:["Search","Scroll (or PIT + search_after)","Ask for page 200,000"],a:1,e:"Normal search stops at 10,000. Use a scroll or PIT for everything."},
+  {q:"Why should you give your scroll ticket back?",o:["So old notebooks can be thrown away","To get a prize","It's optional and doesn't matter"],a:0,e:"Open tickets stop merged-away notebooks from being deleted."}
+];
+let score=0;$('qTotal').textContent=Q.length;
+Q.forEach((qq,i)=>{
+  const w=document.createElement('div');
+  w.innerHTML=`<div class="quiz-q">${i+1}. ${qq.q}</div>`;
+  const fb=document.createElement('div');fb.className='fb';
+  let done=false;
+  qq.o.forEach((o,j)=>{const b=document.createElement('button');b.className='opt';b.textContent=o;
+    b.onclick=()=>{if(done)return;done=true;
+      if(j===qq.a){b.classList.add('right');score++;fb.innerHTML='✅ '+qq.e;}
+      else{b.classList.add('wrong');w.querySelectorAll('.opt')[qq.a].classList.add('right');fb.innerHTML='❌ '+qq.e;}
+      $('score').textContent=score;};
+    w.appendChild(b);});
+  w.appendChild(fb);$('quiz').appendChild(w);
+});
+</script>
+</body>
+</html>

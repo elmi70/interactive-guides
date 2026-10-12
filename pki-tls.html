@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encryption, Certificates & TLS – Interactive Guide</title>
+<style>
+  :root{--bg:#fdf8ef;--card:#fff;--ink:#2b2d42;--muted:#6c757d;--blue:#3a86ff;--green:#2a9d8f;--orange:#f4a261;--red:#e63946;--purple:#8338ec;--yellow:#ffd166;--gold:#e9a800;--radius:16px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  header{background:linear-gradient(135deg,#3a86ff,#8338ec);color:#fff;padding:28px 20px 70px;text-align:center}
+  header h1{margin:0 0 6px;font-size:2rem} header p{margin:0;opacity:.9}
+  nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:-46px auto 20px;max-width:1150px;padding:0 12px}
+  nav button{border:none;background:#fff;color:var(--ink);padding:10px 16px;border-radius:999px;font-size:.92rem;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.12);font-weight:600}
+  nav button.active{background:var(--yellow)}
+  main{max-width:1150px;margin:0 auto;padding:0 16px 60px}
+  section{display:none;animation:fade .3s} section.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .card{background:var(--card);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;box-shadow:0 3px 14px rgba(0,0,0,.07)}
+  h2{margin-top:0} h3{margin:0 0 8px}
+  .btn{border:none;border-radius:10px;padding:9px 14px;font-weight:600;cursor:pointer;color:#fff;background:var(--blue);margin:4px 4px 4px 0;font-size:.92rem}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.red{background:var(--red)}.btn.purple{background:var(--purple)}.btn.grey{background:#8d99ae}
+  .btn.sel{outline:3px solid var(--ink)}
+  .grownup{background:#eef3ff;border-left:5px solid var(--blue);padding:10px 14px;border-radius:8px;font-size:.92rem;margin-top:12px}
+  .warn{background:#fff3e6;border-left:5px solid var(--orange);padding:10px 14px;border-radius:8px;margin-top:10px}
+  .bad{background:#ffe9eb;border-left:5px solid var(--red);padding:10px 14px;border-radius:8px;margin-top:10px}
+  .good{background:#e7f7f3;border-left:5px solid var(--green);padding:10px 14px;border-radius:8px;margin-top:10px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px} @media(max-width:800px){.two{grid-template-columns:1fr}}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  input[type=text],input[type=number],select{padding:7px 9px;border-radius:8px;border:1px solid #ccc;font-size:.95rem}
+  .mono{font-family:Consolas,"Courier New",monospace;background:#f6f7fb;border-radius:8px;padding:8px 10px;word-break:break-all;min-height:38px}
+  code{background:#f1f1f5;padding:1px 5px;border-radius:4px}
+  pre{background:#1e293b;color:#e2e8f0;padding:12px 14px;border-radius:10px;overflow:auto;font-size:.85rem}
+  .key{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.82rem;font-weight:700;margin:2px}
+  .k-priv{background:#fff1c2;color:#8a5a00;border:2px solid var(--gold)}
+  .k-pub{background:#dff3ff;color:#0b5a8a;border:2px solid #5fb0e6}
+  .k-sym{background:#e9dcff;color:#4b1fa0;border:2px solid var(--purple)}
+  /* actors & stepper */
+  .actors{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:10px 0}
+  .actor{text-align:center;background:#f6f7fb;border-radius:14px;padding:10px;min-width:180px;flex:1;max-width:260px;border:3px solid transparent;transition:.25s}
+  .actor.lit{border-color:var(--orange);background:#fff4e6;box-shadow:0 0 0 4px rgba(244,162,97,.25)}
+  .actor.evil.lit{border-color:var(--red);background:#ffe9eb}
+  .actor .emo{font-size:2rem}
+  .notes{min-height:60px;font-size:.82rem;margin-top:4px}
+  .stepper{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+  .dot{min-width:32px;height:32px;padding:0 6px;border-radius:16px;background:#e2e2e2;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer}
+  .dot.on{background:var(--orange);color:#fff}.dot.done{background:var(--green);color:#fff}
+  .steptext{font-size:1.02rem;min-height:80px;background:#faf7ff;border-radius:12px;padding:12px 14px}
+  .wire{margin:10px auto;max-width:800px;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px 14px;font-family:Consolas,monospace;font-size:.85rem;min-height:44px}
+  .wire b{color:#fbbf24}
+  .ctr{text-align:center;margin-top:10px}
+  table{border-collapse:collapse;width:100%} th,td{padding:9px;border-bottom:1px solid #eee;text-align:left;vertical-align:top} th{background:#f6f7fb}
+  .quiz-q{margin:14px 0 6px;font-weight:600}
+  .opt{display:block;width:100%;text-align:left;background:#f6f7fb;border:2px solid transparent;border-radius:10px;padding:8px 12px;margin:4px 0;cursor:pointer;font-size:.95rem}
+  .opt.right{border-color:var(--green);background:#e7f7f3}.opt.wrong{border-color:var(--red);background:#ffe9eb}
+  .fb{font-size:.9rem;min-height:1.2em}
+  .chk{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:#f6f7fb;margin:6px 0;transition:.3s}
+  .chk.pass{background:#e7f7f3}.chk.fail{background:#ffe9eb}
+  .chk .ic{font-size:1.3rem;width:28px;text-align:center}
+  .tile{cursor:pointer;background:#f6f7fb;border:3px solid transparent;border-radius:14px;padding:10px 12px;margin:5px;display:inline-block;transition:.2s}
+  .tile:hover{transform:translateY(-2px)} .tile.sel{border-color:var(--purple);background:#f1e9ff}
+  .srv{background:#f1f5ff;border-radius:14px;padding:12px;flex:1;min-width:260px}
+  .line{font-family:Consolas,monospace;font-size:.8rem;background:#fff;border:1px solid #dde;padding:4px 8px;border-radius:6px;margin:3px 0}
+  .domain{border-radius:14px;padding:12px;flex:1;min-width:230px;border:3px solid}
+  .cert{display:block;cursor:pointer;background:#fff;border-radius:8px;padding:5px 8px;margin:4px 0;font-size:.85rem;border:1px solid #ddd}
+  .cert:hover{background:#fffbe6}
+  .tag{font-size:.72rem;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:4px}
+  .tS{background:#d8f5e8;color:#0f6e56}.tC{background:#dbeafe;color:#1d4ed8}.tSC{background:#fde68a;color:#7c4a00}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔐 Encryption, Certificates & TLS</h1>
+  <p>From "what is a key?" to how kubectl talks to the API server. Click, play and explore!</p>
+</header>
+<nav id="tabs">
+  <button data-tab="t1" class="active">1. Symmetric</button>
+  <button data-tab="t2">2. Asymmetric</button>
+  <button data-tab="t3">3. Hybrid</button>
+  <button data-tab="t4">4. Getting a Certificate</button>
+  <button data-tab="t5">5. TLS Handshake</button>
+  <button data-tab="t6">6. Stop the Hacker</button>
+  <button data-tab="t7">7. SSH Keys</button>
+  <button data-tab="t8">8. Kubernetes PKI</button>
+  <button data-tab="t9">9. Quiz & Cheat Sheet</button>
+</nav>
+<main>
+
+<!-- ============ 1. SYMMETRIC ============ -->
+<section id="t1" class="active">
+  <div class="card">
+    <h2>🔑 Symmetric encryption: one key, two copies</h2>
+    <p>Like a house key: you and your friend each have an <b>identical copy</b>. The same key locks and unlocks.</p>
+    <div class="two">
+      <div>
+        <h3>👩 Alice encrypts</h3>
+        <label>Message <input type="text" id="symMsg" value="HELLO BOB" style="width:100%"></label><br><br>
+        <label>Shared key (shift 1–25) <input type="number" id="symKey" min="1" max="25" value="3"></label>
+        <button class="btn" id="symEnc">🔒 Encrypt</button>
+        <p>What travels on the network (anyone can see this):</p>
+        <div class="mono" id="symCipher"></div>
+      </div>
+      <div>
+        <h3>👨 Bob decrypts</h3>
+        <label>Bob's key <input type="number" id="symKeyB" min="1" max="25" value="3"></label>
+        <button class="btn green" id="symDec">🔓 Decrypt</button>
+        <p>Bob reads:</p>
+        <div class="mono" id="symPlain"></div>
+        <div id="symMsgFb"></div>
+        <button class="btn red" id="symHack">🕵️ Hacker tries all 25 keys</button>
+        <div class="mono" id="symBrute" style="max-height:160px;overflow:auto;font-size:.8rem"></div>
+      </div>
+    </div>
+    <div class="grownup">This toy is a <b>Caesar cipher</b>: only 25 keys, so the hacker wins instantly. Real symmetric ciphers like <b>AES-256</b> have 2<sup>256</sup> possible keys, far too many to try in the lifetime of the universe. Same idea, much bigger key.</div>
+  </div>
+  <div class="card">
+    <h3>⚠️ The catch: how does Bob get the key?</h3>
+    <p>If Alice sends the key over the network, the hacker copies it and reads everything. <b>Sharing the key safely</b> is the problem asymmetric encryption solves (next tab).</p>
+    <pre>openssl enc -aes-256-cbc -pbkdf2 -salt -in secret.txt -out secret.enc   # encrypt
+openssl enc -d -aes-256-cbc -pbkdf2 -in secret.enc -out decrypted.txt   # decrypt with the SAME password</pre>
+  </div>
+</section>
+
+<!-- ============ 2. ASYMMETRIC ============ -->
+<section id="t2">
+  <div class="card">
+    <h2>📮 Asymmetric encryption: a mailbox with a slot</h2>
+    <p>Bob has a <b>key pair</b>. The <span class="key k-pub">🔓 public key</span> is the slot: anyone can drop letters in. The <span class="key k-priv">🔑 private key</span> opens the box, and only Bob has it.</p>
+    <div class="actors">
+      <div class="actor" id="asA"><div class="emo">👩</div><b>Alice</b><div class="notes" id="asAn"></div></div>
+      <div class="actor evil" id="asH"><div class="emo">🕵️</div><b>Hacker</b><div class="notes" id="asHn"></div></div>
+      <div class="actor" id="asB"><div class="emo">👨</div><b>Bob</b><div class="notes" id="asBn"></div></div>
+    </div>
+    <div class="ctr">
+      <button class="btn purple" id="asGen">1️⃣ Bob generates a key pair</button>
+      <button class="btn" id="asPub" disabled>2️⃣ Bob shares his public key</button>
+      <button class="btn orange" id="asEnc" disabled>3️⃣ Alice encrypts with Bob's 🔓</button>
+      <button class="btn red" id="asTry" disabled>4️⃣ Hacker tries to open it</button>
+      <button class="btn green" id="asDec" disabled>5️⃣ Bob opens with 🔑</button>
+      <button class="btn grey" id="asReset">↺ Reset</button>
+    </div>
+    <div id="asFb"></div>
+  </div>
+  <div class="card">
+    <h3>✍️ The other direction: signatures</h3>
+    <p>Flip it around: <b>sign with the private key</b>, <b>verify with the public key</b>. Only the owner could have made the signature, and anyone can check it. This is what certificates and TLS handshakes use to prove identity.</p>
+    <div class="row">
+      <button class="btn purple" id="sigSign">✍️ Bob signs "I am Bob"</button>
+      <button class="btn green" id="sigVer">✅ Verify with Bob's 🔓</button>
+      <button class="btn red" id="sigFake">🕵️ Hacker signs with HIS key</button>
+    </div>
+    <div id="sigFb"></div>
+    <table style="margin-top:12px">
+      <tr><th>Goal</th><th>Who uses 🔓 public</th><th>Who uses 🔑 private</th></tr>
+      <tr><td>Confidentiality (encrypt)</td><td>Sender encrypts</td><td>Receiver decrypts</td></tr>
+      <tr><td>Identity (sign)</td><td>Anyone verifies</td><td>Owner signs</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 3. HYBRID ============ -->
+<section id="t3">
+  <div class="card">
+    <h2>🤝 Hybrid: the best of both</h2>
+    <table>
+      <tr><th></th><th>Symmetric 🔑</th><th>Asymmetric 🔓🔑</th></tr>
+      <tr><td>Keys</td><td>1 shared secret</td><td>Public + private pair</td></tr>
+      <tr><td>Speed</td><td>⚡ Very fast</td><td>🐢 Slow</td></tr>
+      <tr><td>Data size</td><td>Any size</td><td>Small only</td></tr>
+      <tr><td>Problem</td><td>Sharing the key safely</td><td>Speed and size</td></tr>
+      <tr><td>Examples</td><td>AES, ChaCha20</td><td>RSA, ECDSA, ECDH</td></tr>
+      <tr><td>Job in TLS/SSH</td><td>Encrypts the data</td><td>Agrees on the key + proves identity</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>⏱️ Race: encrypt a 1 GB file</h3>
+    <button class="btn" id="raceGo">🏁 Start race</button>
+    <div class="row" style="margin-top:8px"><b style="width:130px">AES (symmetric)</b><div style="flex:1;background:#eee;border-radius:8px;height:18px;overflow:hidden"><div id="raceS" style="height:100%;width:0;background:var(--purple);transition:width .6s"></div></div></div>
+    <div class="row" style="margin-top:6px"><b style="width:130px">RSA (asymmetric)</b><div style="flex:1;background:#eee;border-radius:8px;height:18px;overflow:hidden"><div id="raceA" style="height:100%;width:0;background:var(--orange);transition:width 8s linear"></div></div></div>
+    <div id="raceFb"></div>
+  </div>
+  <div class="card">
+    <h3>🔁 How they combine</h3>
+    <div class="stepper" id="hyDots"></div>
+    <div class="steptext" id="hyText"></div>
+    <div class="ctr"><button class="btn grey" id="hyPrev">◀ Back</button><button class="btn orange" id="hyNext">Next ▶</button></div>
+  </div>
+</section>
+
+<!-- ============ 4. CERTIFICATE REQUEST ============ -->
+<section id="t4">
+  <div class="card">
+    <h2>📜 Getting a certificate: end to end</h2>
+    <p>Why do we need this? Without a certificate, a hacker could send <b>their own</b> public key and you'd encrypt straight to them. The CA's signature says <i>"this public key really belongs to my-bank.com"</i>.</p>
+    <div class="stepper" id="crDots"></div>
+    <div class="steptext" id="crText"></div>
+    <div class="actors">
+      <div class="actor" id="crCA"><div class="emo">🏛️</div><b>Certificate Authority</b><div class="notes" id="crCAn"></div></div>
+      <div class="actor" id="crAD"><div class="emo">🧑‍💻</div><b>Admin / Web server</b><div class="notes" id="crADn"></div></div>
+      <div class="actor" id="crCL"><div class="emo">🌐</div><b>Client (browser / kubectl)</b><div class="notes" id="crCLn"></div></div>
+    </div>
+    <div class="wire" id="crWire"></div>
+    <div class="ctr">
+      <button class="btn grey" id="crPrev">◀ Back</button>
+      <button class="btn orange" id="crNext">Next ▶</button>
+      <button class="btn purple" id="crAuto">▶ Play all</button>
+    </div>
+    <div class="grownup" id="crCmd"></div>
+  </div>
+  <div class="card">
+    <h3>🗝️ Which key signs, which key verifies?</h3>
+    <table>
+      <tr><th>Step</th><th>Signed with</th><th>Verified with</th></tr>
+      <tr><td>2 · CSR</td><td><span class="key k-priv">🔑 server.key</span></td><td><span class="key k-pub">🔓 public key inside the CSR</span></td></tr>
+      <tr><td>5 · Certificate</td><td><span class="key k-priv">🔑 ca.key</span></td><td><span class="key k-pub">🔓 CA public key (ca.crt)</span></td></tr>
+      <tr><td>7d · Handshake</td><td><span class="key k-priv">🔑 server.key</span></td><td><span class="key k-pub">🔓 public key inside server.crt</span></td></tr>
+      <tr><td>7e · Data</td><td colspan="2"><span class="key k-sym">🗝️ symmetric session key</span> (AES-GCM)</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 5. TLS HANDSHAKE ============ -->
+<section id="t5">
+  <div class="card">
+    <h2>🤝 The TLS handshake</h2>
+    <p>Pick a version. Watch the <b>black wire</b>: that's everything the hacker can see.</p>
+    <div class="ctr">
+      <button class="btn sel" id="v13">TLS 1.3 · ECDHE (modern)</button>
+      <button class="btn grey" id="v12">TLS 1.2 · RSA key transport (legacy, what many slides show)</button>
+    </div>
+    <div class="stepper" id="tlDots"></div>
+    <div class="steptext" id="tlText"></div>
+    <div class="actors">
+      <div class="actor" id="tlC"><div class="emo">🌐</div><b>Client</b><div class="notes" id="tlCn"></div></div>
+      <div class="actor evil" id="tlH"><div class="emo">🕵️</div><b>Hacker (sees the wire)</b><div class="notes" id="tlHn"></div></div>
+      <div class="actor" id="tlS"><div class="emo">🖥️</div><b>Server</b><div class="notes" id="tlSn"></div></div>
+    </div>
+    <div class="wire" id="tlWire"></div>
+    <div class="ctr"><button class="btn grey" id="tlPrev">◀ Back</button><button class="btn orange" id="tlNext">Next ▶</button><button class="btn purple" id="tlAuto">▶ Play all</button></div>
+  </div>
+  <div class="card">
+    <h3>⏳ One year later: the server's private key is stolen!</h3>
+    <p>The hacker recorded today's traffic. Can they decrypt it now?</p>
+    <button class="btn red" id="steal">💥 Leak server.key</button>
+    <div id="stealFb"></div>
+    <div class="grownup">This is <b>forward secrecy</b>. In TLS 1.3, <code>server.key</code> only <b>signs</b>. The session key comes from temporary ECDHE keys that are thrown away, so old recordings stay safe.</div>
+    <pre>curl -v https://www.microsoft.com -o /dev/null          # watch the handshake
+openssl s_client -connect www.microsoft.com:443 </dev/null 2>/dev/null | grep -E "Protocol|Cipher|Server Temp Key"</pre>
+  </div>
+</section>
+
+<!-- ============ 6. STOP THE HACKER ============ -->
+<section id="t6">
+  <div class="card">
+    <h2>🕵️ Stop the hacker: you are the browser</h2>
+    <p>You're connecting to <b>https://my-bank.com</b>. The hacker sits in the middle. Choose their trick and watch which check catches it.</p>
+    <div class="row" id="atkBtns"></div>
+    <h3 style="margin-top:14px">🧾 What the hacker presented</h3>
+    <div class="mono" id="atkCert">Pick an attack above.</div>
+    <h3 style="margin-top:14px">✅ Your checks</h3>
+    <div id="checks"></div>
+    <div id="atkFb"></div>
+  </div>
+  <div class="card">
+    <h3>🛂 Passport analogy</h3>
+    <p>The <b>certificate</b> is a passport: public, and anyone can photocopy it. The <b>private key</b> is your face. A stolen passport is useless if the face doesn't match. TLS checks both: a valid CA stamp <i>and</i> proof of the private key (CertificateVerify).</p>
+    <table>
+      <tr><th>Problem</th><th>Solved by</th></tr>
+      <tr><td>"Am I talking to the real server?"</td><td>Certificate + proof of private key</td></tr>
+      <tr><td>"Can anyone read our traffic?"</td><td>Symmetric encryption with the session key</td></tr>
+      <tr><td>"What if ca.key is stolen?"</td><td>❗ Nothing. Keep it offline / in an HSM</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 7. SSH ============ -->
+<section id="t7">
+  <div class="card">
+    <h2>🖥️ SSH: every user brings their own key pair</h2>
+    <p>Each user runs <code>ssh-keygen</code> on <b>their own laptop</b>. Only the <span class="key k-pub">🔓 .pub</span> goes to the server. The server has <b>one host key</b> for everybody.</p>
+    <div class="row">
+      <input type="text" id="sshName" placeholder="username e.g. alice" value="alice">
+      <button class="btn purple" id="sshGen">🔑 ssh-keygen on laptop</button>
+      <button class="btn" id="sshCopy">📤 ssh-copy-id</button>
+      <button class="btn green" id="sshLogin">🚪 ssh login</button>
+      <button class="btn red" id="sshRevoke">🚫 Revoke user</button>
+      <button class="btn grey" id="sshReset">↺ Reset</button>
+    </div>
+    <div class="row" style="margin-top:12px;align-items:stretch">
+      <div class="srv"><h3>💻 Laptops</h3><div id="sshLaptops"></div></div>
+      <div class="srv"><h3>🖥️ Server prod-01</h3>
+        <div><b>Host key</b> (one per server): <span class="key k-priv">🔑 ssh_host_ed25519_key</span> <span class="key k-pub">🔓 .pub</span></div>
+        <div id="sshAuth" style="margin-top:8px"></div></div>
+    </div>
+    <div id="sshFb"></div>
+    <div class="grownup">Login order: ① server proves itself with its <b>host key</b> (checked against your <code>~/.ssh/known_hosts</code>) → ② ECDH agrees a <b>symmetric session key</b> → ③ you sign a challenge with your <b>private key</b>, and the server checks it against <code>authorized_keys</code> → ④ everything encrypted with AES/ChaCha20. <b>Never share a private key between people</b>, because then you can't audit or revoke one person.</div>
+  </div>
+</section>
+
+<!-- ============ 8. KUBERNETES ============ -->
+<section id="t8">
+  <div class="card">
+    <h2>☸️ Kubernetes PKI: the same ideas, a private CA</h2>
+    <table>
+      <tr><th>Public internet</th><th>Kubernetes (kubeadm)</th></tr>
+      <tr><td>Public CA (DigiCert, GlobalSign…)</td><td>Your own cluster CA: <code>/etc/kubernetes/pki/ca.key</code></td></tr>
+      <tr><td>CA certs pre-installed in browser/OS</td><td><code>certificate-authority-data</code> in kubeconfig</td></tr>
+      <tr><td>Web server cert</td><td><code>apiserver.crt</code> on :6443</td></tr>
+      <tr><td>Client certs are rare</td><td>mTLS everywhere: CN = username, O = group</td></tr>
+    </table>
+    <div class="grownup">Your browser would reject the API server cert. It isn't a bad cert: the cluster CA just isn't in the browser's trust store. And kubectl doesn't care about DigiCert.</div>
+  </div>
+  <div class="card">
+    <h3>🏛️ Three separate trust domains: click a certificate</h3>
+    <div class="row" style="align-items:stretch" id="k8sDomains"></div>
+    <div class="steptext" id="k8sInfo" style="margin-top:12px">Click any certificate above.</div>
+    <p><span class="tag tS">S</span> server cert <span class="tag tC">C</span> client cert <span class="tag tSC">S+C</span> both</p>
+  </div>
+  <div class="card">
+    <h3>📝 Kubelet TLS bootstrapping = the certificate request flow</h3>
+    <div class="stepper" id="kbDots"></div>
+    <div class="steptext" id="kbText"></div>
+    <div class="ctr"><button class="btn grey" id="kbPrev">◀ Back</button><button class="btn orange" id="kbNext">Next ▶</button></div>
+    <pre>sudo kubeadm certs check-expiration
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -subject -issuer -ext subjectAltName
+openssl verify -CAfile /etc/kubernetes/pki/etcd/ca.crt /etc/kubernetes/pki/etcd/server.crt
+kubectl get csr && kubectl certificate approve &lt;csr-name&gt;</pre>
+  </div>
+</section>
+
+<!-- ============ 9. QUIZ & CHEAT ============ -->
+<section id="t9">
+  <div class="card">
+    <h2>🧠 Quick quiz</h2>
+    <div id="quiz"></div>
+    <p><b>Score: <span id="score">0</span> / <span id="qTotal">0</span></b></p>
+  </div>
+  <div class="card">
+    <h2>📋 Cheat sheet</h2>
+    <table>
+      <tr><th>Term</th><th>Analogy</th><th>What it means</th></tr>
+      <tr><td>Symmetric key</td><td>🔑 House key with copies</td><td>Same key encrypts and decrypts (AES)</td></tr>
+      <tr><td>Public key</td><td>📮 Mailbox slot</td><td>Shared freely; encrypts or verifies</td></tr>
+      <tr><td>Private key</td><td>🔑 Mailbox key / your face</td><td>Never shared; decrypts or signs</td></tr>
+      <tr><td>CA</td><td>🏛️ Passport office</td><td>Signs certificates with ca.key</td></tr>
+      <tr><td>CSR</td><td>📝 Passport application</td><td>Public key + identity + self-signature</td></tr>
+      <tr><td>Certificate</td><td>🛂 Stamped passport</td><td>Public key + identity + CA signature</td></tr>
+      <tr><td>Trust store</td><td>📖 List of known stamps</td><td>CA certs the client already trusts</td></tr>
+      <tr><td>SAN</td><td>🏷️ Name on the licence</td><td>Hostnames/IPs the cert is valid for</td></tr>
+      <tr><td>CertificateVerify</td><td>👤 Face matches photo</td><td>Server signs the handshake to prove it owns the cert</td></tr>
+      <tr><td>ECDHE</td><td>🎨 Mixing paint colours</td><td>Both sides compute the same session key; it never travels</td></tr>
+      <tr><td>Forward secrecy</td><td>🔥 Burning the notes</td><td>Stolen server key can't decrypt old sessions</td></tr>
+      <tr><td>mTLS</td><td>🎟️ Both show ID</td><td>Client also presents a certificate (Kubernetes default)</td></tr>
+      <tr><td>authorized_keys</td><td>📋 Guest list</td><td>SSH users' public keys allowed to log in</td></tr>
+      <tr><td>known_hosts</td><td>📒 Remembered faces</td><td>SSH servers' host keys you've seen before</td></tr>
+    </table>
+  </div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+  b.classList.add('active');$(b.dataset.tab).classList.add('active');window.scrollTo({top:0,behavior:'smooth'});
+});
+const K={priv:t=>`<span class="key k-priv">🔑 ${t}</span>`,pub:t=>`<span class="key k-pub">🔓 ${t}</span>`,sym:t=>`<span class="key k-sym">🗝️ ${t}</span>`};
+
+/* generic stepper */
+function stepper(o){
+  let i=0,auto=null;
+  o.steps.forEach((s,n)=>{const d=document.createElement('div');d.className='dot';d.textContent=s.label??n;d.onclick=()=>{i=n;r();};$(o.dots).appendChild(d);});
+  function r(){
+    [...$(o.dots).children].forEach((d,n)=>d.className='dot'+(n===i?' on':n<i?' done':''));
+    const s=o.steps[i];$(o.text).innerHTML=s.t;
+    (o.actors||[]).forEach(a=>$(a).classList.toggle('lit',(s.lit||[]).includes(a)));
+    (o.notes||[]).forEach((n,k)=>$(n).innerHTML=(s.n||[])[k]||'');
+    if(o.wire)$(o.wire).innerHTML=s.w||'<span style="opacity:.5">— nothing on the wire —</span>';
+    if(o.extra)o.extra(s);
+    $(o.prev).disabled=i===0;$(o.next).disabled=i===o.steps.length-1;
+  }
+  $(o.next).onclick=()=>{if(i<o.steps.length-1){i++;r();}};
+  $(o.prev).onclick=()=>{if(i>0){i--;r();}};
+  if(o.auto)$(o.auto).onclick=()=>{clearInterval(auto);i=0;r();auto=setInterval(()=>{if(i<o.steps.length-1){i++;r();}else clearInterval(auto);},2600);};
+  r();
+  return {set:(steps)=>{o.steps=steps;$(o.dots).innerHTML='';i=0;steps.forEach((s,n)=>{const d=document.createElement('div');d.className='dot';d.textContent=s.label??n;d.onclick=()=>{i=n;r();};$(o.dots).appendChild(d);});r();}};
+}
+
+/* ---------- 1. Symmetric ---------- */
+const shift=(s,k)=>s.toUpperCase().replace(/[A-Z]/g,c=>String.fromCharCode((c.charCodeAt(0)-65+k+26)%26+65));
+$('symEnc').onclick=()=>{$('symCipher').textContent=shift($('symMsg').value,+$('symKey').value);$('symPlain').textContent='';$('symMsgFb').innerHTML='';$('symBrute').textContent='';};
+$('symDec').onclick=()=>{
+  const c=$('symCipher').textContent;if(!c){$('symMsgFb').innerHTML='<div class="warn">Encrypt something first.</div>';return;}
+  const p=shift(c,-(+$('symKeyB').value));$('symPlain').textContent=p;
+  $('symMsgFb').innerHTML=+$('symKeyB').value===+$('symKey').value?'<div class="good">✅ Same key, so Bob reads the message.</div>':'<div class="bad">❌ Different key, so Bob gets gibberish. Symmetric = both need the SAME key.</div>';
+};
+$('symHack').onclick=()=>{
+  const c=$('symCipher').textContent;if(!c){$('symBrute').textContent='Encrypt something first.';return;}
+  let out='';for(let k=1;k<=25;k++){const p=shift(c,-k);out+=(k===+$('symKey').value?'👉 ':'   ')+'key '+k+': '+p+'\n';}
+  $('symBrute').style.whiteSpace='pre';$('symBrute').textContent=out+'\nFound it! Only 25 keys to try. AES-256 has 2^256.';
+};
+$('symEnc').click();
+
+/* ---------- 2. Asymmetric ---------- */
+let as=0;
+function asR(){
+  $('asGen').disabled=as!==0;$('asPub').disabled=as!==1;$('asEnc').disabled=as!==2;$('asTry').disabled=as!==3;$('asDec').disabled=as!==4;
+  ['asA','asH','asB'].forEach(x=>$(x).classList.remove('lit'));
+}
+$('asGen').onclick=()=>{as=1;asR();$('asB').classList.add('lit');$('asBn').innerHTML=K.priv('private (kept secret)')+'<br>'+K.pub('public');$('asFb').innerHTML='<div class="good">Two keys that are mathematically linked. What one locks, only the other unlocks.</div>';};
+$('asPub').onclick=()=>{as=2;asR();$('asA').classList.add('lit');$('asH').classList.add('lit');$('asAn').innerHTML=K.pub("Bob's public");$('asHn').innerHTML=K.pub("Bob's public")+'<br><small>The hacker has it too. That\'s fine!</small>';$('asFb').innerHTML='<div class="good">Publishing the public key is safe: it can only <b>lock</b>, never unlock.</div>';};
+$('asEnc').onclick=()=>{as=3;asR();$('asA').classList.add('lit');$('asAn').innerHTML='"Meet at 5" → 🔒 <code>Q7$mZ&1k…</code>';$('asHn').innerHTML+='<br>Sees: <code>Q7$mZ&1k…</code>';$('asFb').innerHTML='<div class="good">Alice locked it with Bob\'s 🔓. Now only Bob\'s 🔑 opens it. Even Alice can\'t!</div>';};
+$('asTry').onclick=()=>{as=4;asR();$('asH').classList.add('lit');$('asHn').innerHTML+='<br>❌ Tries public key… won\'t unlock';$('asFb').innerHTML='<div class="bad">🕵️ The public key can\'t decrypt. Without Bob\'s private key, it\'s just noise.</div>';};
+$('asDec').onclick=()=>{as=5;asR();$('asB').classList.add('lit');$('asBn').innerHTML+='<br>✅ "Meet at 5"';$('asFb').innerHTML='<div class="good">🎉 Bob unlocks with his private key. No secret ever had to be shared in advance!</div><div class="warn">Catch: it\'s slow and only works on small data. See the Hybrid tab.</div>';};
+$('asReset').onclick=()=>{as=0;asR();['asAn','asHn','asBn','asFb'].forEach(x=>$(x).innerHTML='');};asR();
+let signed=false;
+$('sigSign').onclick=()=>{signed=true;$('sigFb').innerHTML=`<div class="good">Bob signs with ${K.priv("Bob's private")} → signature <code>sig_9f3a…</code></div>`;};
+$('sigVer').onclick=()=>{$('sigFb').innerHTML=signed?`<div class="good">✅ ${K.pub("Bob's public")} confirms the signature. Only Bob's private key could have made it.</div>`:'<div class="warn">Sign first.</div>';};
+$('sigFake').onclick=()=>{$('sigFb').innerHTML=`<div class="bad">🕵️ Hacker signs "I am Bob" with ${K.priv("hacker's private")}. Verifying with ${K.pub("Bob's public")} ❌ FAILS. He can't fake Bob's signature.</div>`;};
+
+/* ---------- 3. Hybrid ---------- */
+$('raceGo').onclick=()=>{$('raceS').style.width='0';$('raceA').style.transition='none';$('raceA').style.width='0';$('raceFb').innerHTML='';
+  setTimeout(()=>{$('raceS').style.width='100%';$('raceA').style.transition='width 8s linear';$('raceA').style.width='7%';},50);
+  setTimeout(()=>$('raceFb').innerHTML='<div class="good">⚡ AES finished in about a second. RSA is still crawling, and it can only encrypt a few hundred bytes at a time anyway. That\'s why RSA/ECDH only handles the <b>key</b>, and AES handles the <b>data</b>.</div>',900);};
+stepper({dots:'hyDots',text:'hyText',prev:'hyPrev',next:'hyNext',steps:[
+  {label:1,t:`<b>1. Asymmetric sets things up (slow, done once).</b> The client gets the server's ${K.pub('public key')} (inside its certificate).`},
+  {label:2,t:`<b>2. Agree on a session key.</b> Old way: the client makes a random ${K.sym('session key')} and locks it with the server's public key. Modern way (TLS 1.3): ECDHE, where both sides <i>compute</i> the same key.`},
+  {label:3,t:`<b>3. Only the server can get it.</b> The server unlocks with its ${K.priv('private key')}, or computes it via ECDHE. The hacker has nothing.`},
+  {label:4,t:`<b>4. Symmetric does the heavy lifting.</b> Every byte of data is encrypted with ${K.sym('session key')} using AES-GCM: fast, any size.`},
+  {label:'✓',t:`<b>Memory hook:</b> asymmetric <i>delivers the key</i>, symmetric <i>does the work</i>. TLS, SSH, PGP and JWE all work this way.`}
+]});
+
+/* ---------- 4. Certificate request ---------- */
+const crCmds=['openssl genrsa -out ca.key 4096 && openssl req -new -x509 -days 3650 -key ca.key -out ca.crt -subj "/CN=My Root CA"',
+'openssl genrsa -out server.key 2048','openssl req -new -key server.key -out server.csr -subj "/CN=my-bank.com"',
+'# send server.csr to the CA (it is public, not secret)','# public CA: DNS / HTTP challenge   ·   Kubernetes: kubectl certificate approve &lt;csr&gt;',
+'openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 365 -extfile &lt;(printf "subjectAltName=DNS:my-bank.com\\nextendedKeyUsage=serverAuth")',
+'openssl verify -CAfile ca.crt server.crt   # server.crt: OK','openssl s_client -connect my-bank.com:443 -servername my-bank.com'];
+stepper({dots:'crDots',text:'crText',prev:'crPrev',next:'crNext',auto:'crAuto',wire:'crWire',actors:['crCA','crAD','crCL'],notes:['crCAn','crADn','crCLn'],
+extra:s=>$('crCmd').innerHTML='<b>Command:</b><br><code>'+crCmds[s.label==='7'?7:+s.label]+'</code>',
+steps:[
+ {label:'0',lit:['crCA','crCL'],t:`<b>STEP 0 · CA setup (once, years before).</b> The CA generates ${K.priv('ca.key')} and self-signs ${K.pub('ca.crt')}. ca.crt is installed in browsers/OS, or in kubeconfig for Kubernetes.`,
+  n:[K.priv('ca.key')+'<br>'+K.pub('ca.crt'),'',K.pub('ca.crt in trust store')]},
+ {label:'1',lit:['crAD'],t:`<b>STEP 1 · Admin generates the server key pair.</b> ${K.priv('server.key')} never leaves the server.`,
+  n:[K.priv('ca.key'),K.priv('server.key')+'<br>'+K.pub('server public'),K.pub('ca.crt')]},
+ {label:'2',lit:['crAD'],t:`<b>STEP 2 · Admin creates the CSR.</b> CSR = ${K.pub('server public')} + identity (CN, SANs: my-bank.com) + a signature made with ${K.priv('server.key')}, which proves "I own this key".`,
+  n:[K.priv('ca.key'),K.priv('server.key')+'<br>📝 server.csr',K.pub('ca.crt')]},
+ {label:'3',lit:['crAD','crCA'],t:`<b>STEP 3 · Admin → CSR → CA.</b> The CSR is public. The private key stays home.`,w:'Admin ───── <b>server.csr</b> (public key + CN + SANs + self-signature) ─────► CA',
+  n:['📝 server.csr received',K.priv('server.key'),K.pub('ca.crt')]},
+ {label:'4',lit:['crCA'],t:`<b>STEP 4 · CA verifies.</b> (a) It checks the CSR signature with the ${K.pub('public key inside the CSR')}, proving the requester owns the private key. (b) It checks the requester controls my-bank.com (DNS/HTTP challenge, or a Kubernetes approver).`,
+  n:['🔍 signature ✓<br>🔍 domain ownership ✓',K.priv('server.key'),K.pub('ca.crt')]},
+ {label:'5',lit:['crCA'],t:`<b>STEP 5 · CA issues the certificate.</b> Build: server public key + subject + SANs + validity + issuer + extensions. Sign it with ${K.priv('ca.key')}, the CA's "stamp".`,
+  n:[K.priv('ca.key')+' ✍️ signs<br>📜 server.crt',K.priv('server.key'),K.pub('ca.crt')]},
+ {label:'6',lit:['crCA','crAD'],t:`<b>STEP 6 · CA → server.crt → Admin.</b> Install server.crt + server.key on the web server, then discard the CSR.`,w:'CA ───── <b>📜 server.crt</b> ─────► Admin',
+  n:[K.priv('ca.key'),K.priv('server.key')+'<br>📜 server.crt installed',K.pub('ca.crt')]},
+ {label:'7',lit:['crAD','crCL'],t:`<b>STEP 7 · Client connects.</b><br>7a Server sends 📜 server.crt<br>7b Client verifies the CA signature using ${K.pub('ca.crt')}, so the cert is genuine<br>7c Client checks SAN = hostname, and that the cert hasn't expired<br>7d Server signs the handshake with ${K.priv('server.key')} (CertificateVerify): "I own this cert"<br>7e ECDHE → ${K.sym('session key')} → AES encrypts the data`,
+  w:'Server ── <b>server.crt</b> + <b>CertificateVerify</b> ──► Client &nbsp;&nbsp;then&nbsp;&nbsp; ════ AES-GCM encrypted data ════',
+  n:[K.priv('ca.key')+'<br><small>(not involved: offline)</small>',K.priv('server.key')+' ✍️ handshake','✅ chain ✓ SAN ✓ expiry ✓<br>'+K.sym('session key')]}
+]});
+
+/* ---------- 5. TLS ---------- */
+const tl13=[
+ {label:1,lit:['tlC'],t:'<b>① ClientHello.</b> "Hi, I want my-bank.com. Here are my ciphers and my <b>ECDHE public value</b>."',w:'Client ──► <b>ClientHello</b> [ciphers, client_random, ECDHE share A]',n:['🎲 temp ECDHE key a','sees: ECDHE share A','']},
+ {label:2,lit:['tlS'],t:'<b>② ServerHello.</b> The server picks <code>TLS_AES_256_GCM_SHA384</code> and sends its own <b>ECDHE public value</b>. Both sides now <b>compute the same secret</b>. It never crossed the wire!',w:'Server ──► <b>ServerHello</b> [cipher, server_random, ECDHE share B]',n:['🧮 a + B → '+K.sym('secret'),'sees: A and B<br>❌ can\'t compute the secret','🧮 b + A → '+K.sym('secret')]},
+ {label:3,lit:['tlS'],t:'<b>③ {Certificate}.</b> server.crt is sent, <b>already encrypted</b> with handshake keys.',w:'Server ──► <b>{Certificate}</b> (encrypted)',n:['','sees: 🔒 gibberish','📜 server.crt']},
+ {label:4,lit:['tlS','tlC'],t:'<b>④ {CertificateVerify}.</b> The server <b>signs</b> the whole handshake transcript with '+K.priv('server.key')+'. This is the <b>only</b> use of the private key.',w:'Server ──► <b>{CertificateVerify}</b> + {Finished}',n:['✅ CA sig ✓ SAN ✓ expiry ✓ signature ✓','sees: 🔒 gibberish',K.priv('server.key')+' ✍️']},
+ {label:5,lit:['tlC','tlS'],t:'<b>⑤ Application data.</b> Everything is encrypted with '+K.sym('session key')+' (AES-GCM). The server private key is no longer involved.',w:'════ <b>AES-GCM encrypted HTTP</b> ════',n:[K.sym('session key'),'sees: 🔒 gibberish forever',K.sym('session key')]}
+];
+const tl12=[
+ {label:1,lit:['tlC'],t:'<b>① ClientHello.</b> "Hi, I want my-bank.com."',w:'Client ──► <b>ClientHello</b>',n:['','sees: hello','']},
+ {label:2,lit:['tlS'],t:'<b>② Certificate.</b> The server sends server.crt containing its '+K.pub('public key')+'. In TLS 1.2 this is <b>not encrypted</b>.',w:'Server ──► <b>Certificate</b> (plaintext, 🔓 public key)',n:['📜 got server.crt','sees: the cert (it\'s public anyway)','📜 server.crt']},
+ {label:3,lit:['tlC'],t:'<b>③ Verify.</b> CA signature ✓, domain = my-bank.com ✓, not expired ✓. Green padlock!',n:['✅ cert genuine','','']},
+ {label:4,lit:['tlC'],t:'<b>④ Client makes a random secret</b> '+K.sym('pre-master secret')+' and <b>locks it</b> with the server\'s '+K.pub('public key')+'.',w:'Client ──► <b>🔒 encrypted pre-master secret</b>',n:[K.sym('secret')+' → 🔒','sees: 🔒 blob<br>📼 <b>records it…</b>','']},
+ {label:5,lit:['tlS'],t:'<b>⑤ Server unlocks</b> with '+K.priv('server.key')+'. Now both have the session key.',n:[K.sym('session key'),'❌ no private key, can\'t open',K.priv('server.key')+' → '+K.sym('session key')]},
+ {label:6,lit:['tlC','tlS'],t:'<b>⑥ Application data</b> encrypted with '+K.sym('session key')+'.<br>⚠️ But the secret <b>did</b> travel the wire, so steal server.key later and you can unlock the recording.',w:'════ <b>AES encrypted HTTP</b> ════',n:[K.sym('session key'),'📼 recorded everything',K.sym('session key')]}
+];
+let ver=13;
+const tl=stepper({dots:'tlDots',text:'tlText',prev:'tlPrev',next:'tlNext',auto:'tlAuto',wire:'tlWire',actors:['tlC','tlH','tlS'],notes:['tlCn','tlHn','tlSn'],steps:tl13});
+$('v13').onclick=()=>{ver=13;$('v13').className='btn sel';$('v12').className='btn grey';tl.set(tl13);$('stealFb').innerHTML='';};
+$('v12').onclick=()=>{ver=12;$('v12').className='btn sel';$('v13').className='btn grey';tl.set(tl12);$('stealFb').innerHTML='';};
+$('steal').onclick=()=>{$('stealFb').innerHTML=ver===12?
+ '<div class="bad">💀 TLS 1.2 RSA: the hacker uses server.key to unlock the recorded 🔒 pre-master secret → session key → <b>decrypts every recorded session</b>. No forward secrecy.</div>':
+ '<div class="good">🛡️ TLS 1.3 ECDHE: server.key was only used to <b>sign</b>. The temporary ECDHE keys are gone, so the recording <b>stays encrypted</b>. Forward secrecy! (The hacker could still impersonate the server until the cert is revoked or expires.)</div>';};
+
+/* ---------- 6. Stop the hacker ---------- */
+const attacks=[
+ {n:'🧪 Self-signed cert',c:'Subject: CN=my-bank.com\nIssuer:  CN=my-bank.com  (signed by hacker\'s own key)\nSAN:     DNS:my-bank.com\nValid:   ✓',r:[0,1,1,1],fb:'Signed by nobody you trust. It isn\'t chained to any CA in your trust store. <code>x509: certificate signed by unknown authority</code>'},
+ {n:'🏷️ Real cert for hacker.com',c:'Subject: CN=hacker.com\nIssuer:  DigiCert (genuine!)\nSAN:     DNS:hacker.com\nValid:   ✓',r:[1,0,1,1],fb:'A genuine CA really signed it, but for the wrong name. <code>x509: certificate is valid for hacker.com, not my-bank.com</code>'},
+ {n:'📋 Replay the REAL bank cert',c:'Subject: CN=my-bank.com\nIssuer:  DigiCert (genuine!)\nSAN:     DNS:my-bank.com\nValid:   ✓\n(copied from the real server, since certs are public)',r:[1,1,1,0],fb:'Everything looks perfect, but the hacker can\'t produce <b>CertificateVerify</b> without the bank\'s private key. The passport is real, but the face doesn\'t match.'},
+ {n:'⌛ Old stolen cert',c:'Subject: CN=my-bank.com\nIssuer:  DigiCert\nSAN:     DNS:my-bank.com\nValid:   ❌ expired 2023-04-01\n(+ stolen old private key)',r:[1,1,0,1],fb:'Expired certificates are rejected. That\'s why short validity limits the damage from old leaked keys.'},
+ {n:'💀 Stole the CA private key',c:'Subject: CN=my-bank.com\nIssuer:  DigiCert (forged with stolen ca.key!)\nSAN:     DNS:my-bank.com\nValid:   ✓\n(+ hacker\'s own key pair)',r:[1,1,1,1],fb:'⚠️ <b>Every check passes.</b> With the CA private key, the hacker can mint any certificate. That\'s why ca.key lives offline or in an HSM, and in Kubernetes, owning <code>/etc/kubernetes/pki/ca.key</code> = owning the cluster.'}
+];
+const checkNames=['CA signature valid? (trust store)','Hostname matches SAN?','Within validity period?','CertificateVerify signature? (owns private key)'];
+attacks.forEach((a,i)=>{const b=document.createElement('button');b.className='btn red';b.textContent=a.n;b.onclick=()=>runAtk(i);$('atkBtns').appendChild(b);});
+function runAtk(i){
+  const a=attacks[i];$('atkCert').style.whiteSpace='pre-wrap';$('atkCert').textContent=a.c;$('checks').innerHTML='';$('atkFb').innerHTML='';
+  let stopped=false;
+  checkNames.forEach((c,k)=>{const d=document.createElement('div');d.className='chk';d.innerHTML=`<span class="ic">⏳</span>${c}`;$('checks').appendChild(d);
+    setTimeout(()=>{if(stopped){d.innerHTML=`<span class="ic">⏭️</span>${c} <small>(not reached)</small>`;return;}
+      if(a.r[k]){d.className='chk pass';d.innerHTML=`<span class="ic">✅</span>${c}`;}
+      else{d.className='chk fail';d.innerHTML=`<span class="ic">❌</span>${c}`;stopped=true;}
+      if(k===3)$('atkFb').innerHTML=stopped?`<div class="good">🛑 Connection aborted. ${a.fb}</div>`:`<div class="bad">${a.fb}</div>`;
+    },500*(k+1));});
+}
+
+/* ---------- 7. SSH ---------- */
+let users={};
+function sshR(){
+  $('sshLaptops').innerHTML=Object.keys(users).map(u=>`<div class="line">💻 ${u}'s laptop: ${users[u].gen?K.priv('id_ed25519')+K.pub('id_ed25519.pub'):'<i>no keys yet</i>'}</div>`).join('')||'<i>No users yet</i>';
+  const auth=Object.keys(users).filter(u=>users[u].copied);
+  $('sshAuth').innerHTML='<b>/home/&lt;user&gt;/.ssh/authorized_keys</b>'+(auth.map(u=>`<div class="line">/home/${u}: ssh-ed25519 AAAAC3…${u.slice(0,3)} ${u}@laptop</div>`).join('')||'<div class="line"><i>empty</i></div>');
+}
+const sshU=()=>($('sshName').value||'').trim().toLowerCase();
+$('sshGen').onclick=()=>{const u=sshU();if(!u)return;users[u]=users[u]||{};users[u].gen=true;sshR();
+  $('sshFb').innerHTML=`<div class="good"><code>ssh-keygen -t ed25519 -C "${u}@laptop"</code>: the key pair is created <b>on ${u}'s laptop</b>. The private key never leaves it. Try another name to add a second user with their <b>own</b> pair.</div>`;};
+$('sshCopy').onclick=()=>{const u=sshU();if(!users[u]?.gen){$('sshFb').innerHTML='<div class="warn">Generate a key first.</div>';return;}users[u].copied=true;sshR();
+  $('sshFb').innerHTML=`<div class="good"><code>ssh-copy-id ${u}@prod-01</code>: only the <b>.pub</b> is appended to /home/${u}/.ssh/authorized_keys.</div>`;};
+$('sshLogin').onclick=()=>{const u=sshU();const ok=users[u]?.copied;
+  $('sshFb').innerHTML=ok?`<div class="good">① Server signs with its host key, and the laptop checks known_hosts ✓<br>② ECDH → ${K.sym('session key')}<br>③ ${u} signs a challenge with ${K.priv('id_ed25519')}, and the server verifies it with the key in authorized_keys ✓<br>④ 🎉 Logged in. All traffic is AES/ChaCha20 encrypted.</div>`:`<div class="bad">❌ Permission denied (publickey). ${u}'s public key isn't in authorized_keys.</div>`;};
+$('sshRevoke').onclick=()=>{const u=sshU();if(users[u]){users[u].copied=false;sshR();$('sshFb').innerHTML=`<div class="warn">🚫 Removed ${u}'s line from authorized_keys. Only ${u} loses access, which is why everyone needs their own key.</div>`;}};
+$('sshReset').onclick=()=>{users={};sshR();$('sshFb').innerHTML='';};sshR();
+
+/* ---------- 8. Kubernetes ---------- */
+const doms=[
+ {n:'Cluster CA',p:'/etc/kubernetes/pki/ca.crt',c:'#8338ec',certs:[
+  ['apiserver.crt','S','API server serving cert on :6443. Its SANs must include kubernetes, kubernetes.default.svc…, the node IP and 10.96.0.1.'],
+  ['admin.conf (embedded)','C','kubectl → API. CN=kubernetes-admin, O=system:masters, which is hard-coded cluster-admin (bypasses RBAC).'],
+  ['scheduler.conf (embedded)','C','Scheduler → API. CN=system:kube-scheduler → limited ClusterRole (no Secrets).'],
+  ['controller-manager.conf','C','Controller manager → API. CN=system:kube-controller-manager. It also signs kubelet CSRs.'],
+  ['kubelet-client-current.pem','C','Kubelet → API. CN=system:node:&lt;name&gt;, O=system:nodes, which activates the Node Authorizer. Obtained via TLS bootstrapping.'],
+  ['kubelet.crt','S','Kubelet serving cert on :10250 (for exec, logs, port-forward).'],
+  ['apiserver-kubelet-client.crt','C','API server → kubelet. Here the API server is the TLS <b>client</b>.']]},
+ {n:'etcd CA',p:'/etc/kubernetes/pki/etcd/ca.crt',c:'#2a9d8f',certs:[
+  ['etcd/server.crt','S','etcd serving cert on :2379.'],
+  ['etcd/peer.crt','SC','etcd member ↔ member traffic: both server and client.'],
+  ['apiserver-etcd-client.crt','C','API server → etcd. Signed by the <b>etcd CA</b>, not the cluster CA. Mixing them up causes <code>x509: certificate signed by unknown authority</code>.'],
+  ['etcd/healthcheck-client.crt','C','Used by liveness probes.']]},
+ {n:'Front-proxy CA',p:'/etc/kubernetes/pki/front-proxy-ca.crt',c:'#f4a261',certs:[
+  ['front-proxy-client.crt','C','API server → extension API servers (e.g. metrics-server).']]},
+ {n:'SA keys (no CA!)',p:'sa.key / sa.pub',c:'#8d99ae',certs:[
+  ['sa.key','—','Private key. The controller manager signs ServiceAccount <b>JWT tokens</b>. Not a certificate, and there\'s no chain of trust.'],
+  ['sa.pub','—','Public key. The API server verifies pod tokens: a plain key pair signature, like the Asymmetric tab.']]}
+];
+doms.forEach(d=>{const el=document.createElement('div');el.className='domain';el.style.borderColor=d.c;el.style.background=d.c+'14';
+  el.innerHTML=`<h3 style="color:${d.c}">🏛️ ${d.n}</h3><small><code>${d.p}</code></small>`;
+  d.certs.forEach(c=>{const x=document.createElement('span');x.className='cert';
+    x.innerHTML=`📜 ${c[0]}`+(c[1]!=='—'?`<span class="tag t${c[1]}">${c[1]==='SC'?'S+C':c[1]}</span>`:'');
+    x.onclick=()=>$('k8sInfo').innerHTML=`<b>${c[0]}</b> <small style="color:${d.c}">(${d.n})</small><br>${c[2]}`;el.appendChild(x);});
+  $('k8sDomains').appendChild(el);});
+stepper({dots:'kbDots',text:'kbText',prev:'kbPrev',next:'kbNext',steps:[
+ {label:1,t:'<b>Step 1 · Key pair.</b> The new kubelet generates its own private key on the worker node (= Step 1 in the certificate flow).'},
+ {label:2,t:'<b>Step 2 · CSR object.</b> The kubelet submits a <code>CertificateSigningRequest</code> with CN=system:node:&lt;hostname&gt;, O=system:nodes, authenticating with a limited <b>bootstrap token</b>. It already trusts the API server thanks to <code>certificate-authority-data</code>.'},
+ {label:3,t:'<b>Step 3 · Approve.</b> The csrapproving controller auto-approves valid node CSRs (or you run <code>kubectl certificate approve</code>) (= Step 4 · CA verifies).'},
+ {label:4,t:'<b>Step 4 · Sign.</b> The controller manager signs with the cluster <code>ca.key</code> (= Step 5).'},
+ {label:5,t:'<b>Step 5 · Install.</b> The kubelet downloads it to <code>/var/lib/kubelet/pki/kubelet-client-current.pem</code>, swaps the bootstrap kubeconfig for kubelet.conf, and rotates automatically before expiry (= Step 6).'},
+ {label:6,t:'<b>Step 6 · Use.</b> Every connection is mTLS to :6443. The API server reads CN/O → Node Authorizer + RBAC (= Step 7).'}
+]});
+
+/* ---------- 9. Quiz ---------- */
+const Q=[
+ {q:"In symmetric encryption, how many keys are there?",o:["One shared key","A public and a private key","One per message"],a:0,e:"One key, identical copies on both sides."},
+ {q:"What's the main weakness of symmetric encryption?",o:["It's slow","Sharing the key safely","It only works on small data"],a:1,e:"Getting the same key to both sides without it being stolen."},
+ {q:"Anyone can encrypt a message for Bob using…",o:["Bob's private key","Bob's public key","A symmetric key"],a:1,e:"Public key locks, and only Bob's private key unlocks."},
+ {q:"What does a certificate prove?",o:["The traffic is encrypted","This public key belongs to this name, vouched for by a CA","The server is fast"],a:1,e:"It binds a public key to an identity, signed by a CA."},
+ {q:"Which key signs the certificate?",o:["server.key","ca.key","The session key"],a:1,e:"The CA's private key is the official stamp."},
+ {q:"The hacker copies the real bank certificate. What stops them?",o:["SAN check","Expiry check","CertificateVerify: they don't have server.key"],a:2,e:"Certificates are public; proving ownership of the private key isn't possible without it."},
+ {q:"In TLS 1.3, does the session key travel over the network?",o:["Yes, encrypted with the server's public key","No, both sides compute it via ECDHE"],a:1,e:"ECDHE: only public halves travel, so you get forward secrecy."},
+ {q:"For SSH, what does a user copy to the server?",o:["Their private key","Their public key","The server host key"],a:1,e:"Only id_ed25519.pub goes into authorized_keys."},
+ {q:"kubectl gets 'certificate signed by unknown authority' talking to etcd from the API server. Likely cause?",o:["Cert expired","Used the cluster CA instead of the etcd CA","RBAC denied"],a:1,e:"etcd has its own CA trust domain, so don't mix them."},
+ {q:"In a Kubernetes client cert, what does O=system:nodes become?",o:["The username","The group","The namespace"],a:1,e:"CN → username, O → group for RBAC / Node Authorizer."}
+];
+let score=0;$('qTotal').textContent=Q.length;
+Q.forEach((qq,i)=>{const w=document.createElement('div');w.innerHTML=`<div class="quiz-q">${i+1}. ${qq.q}</div>`;
+  const fb=document.createElement('div');fb.className='fb';let done=false;
+  qq.o.forEach((o,j)=>{const b=document.createElement('button');b.className='opt';b.textContent=o;
+    b.onclick=()=>{if(done)return;done=true;
+      if(j===qq.a){b.classList.add('right');score++;fb.innerHTML='✅ '+qq.e;}
+      else{b.classList.add('wrong');w.querySelectorAll('.opt')[qq.a].classList.add('right');fb.innerHTML='❌ '+qq.e;}
+      $('score').textContent=score;};w.appendChild(b);});
+  w.appendChild(fb);$('quiz').appendChild(w);});
+</script>
+</body>
+</html>

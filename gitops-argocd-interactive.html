@@ -1,0 +1,111 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GitOps & Argo CD Interactive Lab</title>
+<style>
+:root{--bg:#f7f8fc;--card:#fff;--ink:#172033;--muted:#667085;--purple:#6d4aff;--cyan:#0ea5e9;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--line:#e5e7eb}*{box-sizing:border-box}body{margin:0;font:15px/1.55 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--ink)}header{padding:34px 20px 70px;color:white;text-align:center;background:linear-gradient(135deg,#5b36e8,#0ea5e9)}header h1{font-size:clamp(30px,5vw,58px);margin:0}header p{max-width:760px;margin:8px auto 0;opacity:.92}.tabs{max-width:1180px;margin:-36px auto 22px;padding:0 12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.tabs button,.btn{border:0;border-radius:999px;background:#fff;padding:10px 15px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px #0002}.tabs button.on{background:#fde68a}.wrap{max-width:1180px;margin:auto;padding:0 16px 60px}.page{display:none}.page.on{display:block}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0;box-shadow:0 6px 24px #0000000b}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.box{border:2px solid var(--line);border-radius:14px;padding:14px}.box h3{margin-top:0}.btn{background:#334155;color:#fff;box-shadow:none;margin:4px}.btn.p{background:var(--purple)}.btn.g{background:var(--green)}.btn.r{background:var(--red)}.btn.a{background:var(--amber);color:#111827}.status{display:inline-block;padding:4px 9px;border-radius:999px;font-weight:800}.synced{background:#d1fae5;color:#067647}.out{background:#fee2e2;color:#b42318}.healthy{background:#dbeafe;color:#175cd3}.mono,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:12px;overflow:auto}.step{border-left:5px solid var(--purple);padding:10px 14px;margin:9px 0;background:#f8f7ff;border-radius:8px}.small{color:var(--muted);font-size:.9em}.actor{padding:14px;border-radius:14px;text-align:center;background:#f8fafc;border:2px solid var(--line)}.actor.hot{border-color:var(--amber);background:#fffbeb}.diagram{overflow:auto;text-align:center}.mermaid{min-width:660px}.compare td,.compare th{border-bottom:1px solid var(--line);padding:9px;text-align:left}.compare{border-collapse:collapse;width:100%}.quiz button{display:block;width:100%;text-align:left;margin:6px 0;padding:10px;border:2px solid var(--line);border-radius:10px;background:white}.quiz button.good{border-color:var(--green);background:#ecfdf5}.quiz button.bad{border-color:var(--red);background:#fef2f2}.callout{background:#eff6ff;border-left:5px solid var(--cyan);padding:12px;border-radius:10px}.warn{background:#fff7ed;border-left-color:var(--amber)}details{margin:8px 0}summary{cursor:pointer;font-weight:800}@media(max-width:650px){.wrap{padding:0 10px 40px}.card{padding:14px}.tabs button{font-size:12px;padding:8px 10px}.mermaid{min-width:620px}}
+</style></head><body><header><h1>GitOps & Argo CD</h1><p>Learn by changing Git, breaking the cluster, syncing applications, and watching Argo CD reconcile desired state with live state.</p></header>
+<nav class="tabs" id="tabs"></nav><main class="wrap">
+<section class="page on" data-title="1 · GitOps"><div class="card"><h2>What problem does GitOps solve?</h2><div class="grid"><div class="box"><h3>🚚 Push deployment</h3><p>CI builds and then connects to the cluster to deploy.</p><div class="mono">CI → kubectl/helm → cluster</div><p class="small">The deployment system needs cluster credentials and write access.</p></div><div class="box"><h3>🧲 Pull deployment</h3><p>A controller inside the delivery boundary observes Git and reconciles the cluster.</p><div class="mono">Git ← watch/pull → Argo CD → Kubernetes API</div><p class="small">Git holds desired configuration; the controller performs reconciliation.</p></div></div></div>
+<div class="card"><h2>The GitOps loop</h2><div class="diagram"><pre class="mermaid">flowchart LR
+ DEV[Developer] -->|commit + PR| GIT[(Git\nDesired State)]
+ GIT -->|observe| ARGO[Argo CD\nReconciler]
+ ARGO -->|compare| K8S[(Kubernetes\nLive State)]
+ ARGO -->|sync| K8S
+ K8S -. drift .-> ARGO
+ ARGO -. status .-> DEV
+</pre></div><div class="callout"><b>Mental model:</b> Git says what should exist. Kubernetes says what does exist. Argo CD repeatedly compares the two and may act based on sync policy.</div></div>
+<div class="card"><h2>Interactive: Git as desired state</h2><div class="grid"><div class="box"><h3>Git</h3><label>replicas <input id="gitRep" type="number" value="3" min="0" max="10"></label><button class="btn p" onclick="commitGit()">Commit</button><p id="gitSha" class="small">revision: a1b2c3</p></div><div class="box"><h3>Cluster</h3><p>live replicas: <b id="liveRep">3</b></p><button class="btn r" onclick="manualScale()">kubectl scale → 5</button><button class="btn g" onclick="doSync()">Sync</button></div><div class="box"><h3>Argo CD</h3><p>Sync: <span id="syncState" class="status synced">Synced</span></p><p>Health: <span class="status healthy">Healthy</span></p><p id="diff">No diff.</p></div></div></div></section>
+<section class="page" data-title="2 · Argo CD"><div class="card"><h2>What Argo CD does</h2><p>Argo CD is a declarative GitOps continuous delivery tool for Kubernetes. It compares target state represented by Git with live cluster state, reports deviations, and supports manual or automatic synchronization.</p><div class="diagram"><pre class="mermaid">flowchart TB
+ G[(Git / Helm / Kustomize / YAML)] --> R[repo-server\nrender desired manifests]
+ UI[CLI / UI / API] --> S[argocd-server]
+ S --> C[application-controller]
+ R --> C
+ C -->|compare + reconcile| K[(Kubernetes clusters)]
+ C --> M[status / health / history]
+ N[notifications-controller] --> X[Notifications]
+ C --> N
+</pre></div></div>
+<div class="card"><h2>Core terminology: click a concept</h2><div id="terms" class="grid"></div><div id="termOut" class="callout">Choose a concept.</div></div></section>
+<section class="page" data-title="3 · Reconciliation"><div class="card"><h2>Observe → Diff → Act</h2><div id="recActors" class="grid"><div class="actor" id="rGit">📚<br><b>Git desired state</b></div><div class="actor" id="rArgo">🐙<br><b>Argo CD</b></div><div class="actor" id="rK8s">☸️<br><b>Live cluster</b></div></div><div id="recText" class="step"></div><div><button class="btn" onclick="rec(-1)">◀ Back</button><button class="btn p" onclick="rec(1)">Next ▶</button><button class="btn a" onclick="recAuto()">Play all</button></div></div>
+<div class="card"><h2>Webhook vs reconciliation timer</h2><p>A webhook can notify Argo CD about a Git change quickly. Reconciliation still provides the controller loop that compares Git with cluster state.</p><div class="diagram"><pre class="mermaid">sequenceDiagram
+ participant D as Developer
+ participant G as Git
+ participant A as Argo CD
+ participant K as Kubernetes
+ D->>G: push commit
+ G-->>A: webhook event
+ A->>G: read desired state
+ A->>K: read live state
+ A->>A: diff
+ A->>K: sync if policy/manual action allows
+</pre></div></div></section>
+<section class="page" data-title="4 · Sync Policy"><div class="card"><h2>Automated, prune, self-heal</h2><p>Toggle the options, then try Git changes and manual cluster drift.</p><div><label><input id="auto" type="checkbox" onchange="policy()"> automated</label> &nbsp; <label><input id="prune" type="checkbox" onchange="policy()"> prune</label> &nbsp; <label><input id="heal" type="checkbox" onchange="policy()"> selfHeal</label></div><div class="grid" style="margin-top:14px"><div class="box"><h3>Git</h3><p>Deployment + <span id="svcGit">Service</span></p><button class="btn p" onclick="newImage()">Commit new image</button><button class="btn r" onclick="deleteSvcGit()">Delete Service from Git</button></div><div class="box"><h3>Cluster</h3><p>image: <b id="imageLive">v1</b></p><p>Service: <b id="svcLive">present</b></p><p>replicas: <b id="polRep">3</b></p><button class="btn r" onclick="drift()">kubectl scale → 7</button></div><div class="box"><h3>Result</h3><p id="polResult">Manual sync mode. Argo CD observes differences but waits for a sync action.</p></div></div><details><summary>Show example Application syncPolicy</summary><pre>syncPolicy:
+  automated:
+    enabled: true
+    prune: true
+    selfHeal: true</pre></details></div>
+<div class="card"><h2>Remember the switches</h2><table class="compare"><tr><th>Option</th><th>What it controls</th></tr><tr><td>automated</td><td>Whether detected desired-state changes can be synced automatically.</td></tr><tr><td>prune</td><td>Whether resources removed from Git may be deleted from the cluster during automated sync.</td></tr><tr><td>selfHeal</td><td>Whether live-cluster drift can trigger automated reconciliation back toward Git.</td></tr></table></div></section>
+<section class="page" data-title="5 · Application"><div class="card"><h2>Application = source + destination + policy</h2><div class="diagram"><pre class="mermaid">flowchart LR
+ SRC[Source\nrepoURL + revision + path/chart] --> APP[Argo CD Application]
+ APP --> DST[Destination\ncluster + namespace]
+ POL[Project + sync policy + options] --> APP
+ APP --> RES[Deployment / Service / ConfigMap ...]
+</pre></div><pre>apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: color-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://example.invalid/platform-config.git
+    targetRevision: main
+    path: apps/color
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: color
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true</pre><div class="callout warn"><b>Application vs AppProject:</b> Application defines what to deploy and where. AppProject provides a logical grouping and can constrain allowed sources, destinations and resource kinds.</div></div></section>
+<section class="page" data-title="6 · Architecture"><div class="card"><h2>Request journey</h2><p>Select a journey:</p><button class="btn p" onclick="journey('render')">Render manifests</button><button class="btn g" onclick="journey('sync')">Sync app</button><button class="btn a" onclick="journey('login')">Login/UI</button><div id="journeyOut" class="step"></div><div class="diagram"><pre class="mermaid">flowchart LR
+ USER[User / CLI] --> SERVER[argocd-server]
+ GIT[(Git)] --> REPO[argocd-repo-server]
+ REPO --> CTRL[argocd-application-controller]
+ SERVER --> CTRL
+ CTRL --> K8S[(Kubernetes API)]
+ DEX[Dex / external IdP] --> SERVER
+ CTRL --> REDIS[(Redis cache)]
+ CTRL --> NOTIFY[notification-controller]
+</pre></div></div></section>
+<section class="page" data-title="7 · Patterns"><div class="card"><h2>Deployment patterns</h2><div class="grid"><div class="box"><h3>Mono application</h3><p>One Application points to one path/chart and one destination.</p></div><div class="box"><h3>App-of-Apps</h3><p>A parent Application points to manifests that define child Argo CD Applications.</p></div><div class="box"><h3>Multi-cluster</h3><p>Applications can target registered destination clusters. Keep project boundaries and credentials deliberate.</p></div></div><div class="diagram"><pre class="mermaid">flowchart TB
+ ROOT[Parent Application] --> A[payments Application]
+ ROOT --> B[orders Application]
+ ROOT --> C[observability Application]
+ A --> DEV[(dev cluster)]
+ B --> STG[(staging cluster)]
+ C --> PROD[(prod cluster)]
+</pre></div></div></section>
+<section class="page" data-title="8 · Health & Order"><div class="card"><h2>Sync is not the same as health</h2><div class="grid"><div class="box"><h3>Sync status</h3><p>Does live state match target state?</p><p><span class="status synced">Synced</span> / <span class="status out">OutOfSync</span></p></div><div class="box"><h3>Health</h3><p>What does Argo CD's health assessment say about the resources?</p><p><span class="status healthy">Healthy</span> · Progressing · Degraded · Missing · Suspended · Unknown</p></div></div></div><div class="card"><h2>Hooks let you model rollout phases</h2><div class="diagram"><pre class="mermaid">flowchart LR
+ PRE[PreSync\nexample: migration Job] --> SYNC[Sync\nworkload resources] --> POST[PostSync\nexample: smoke test]
+</pre></div></div></section>
+<section class="page" data-title="9 · Secrets"><div class="card"><h2>GitOps does not make plaintext secrets safe</h2><p>The attached training material discusses Bitnami Sealed Secrets and the Argo CD Vault Plugin as approaches for secret workflows.</p><div class="grid"><div class="box"><h3>Sealed Secrets model</h3><p>Commit encrypted SealedSecret material. A controller in the cluster turns it into a Kubernetes Secret.</p></div><div class="box"><h3>Vault/plugin model</h3><p>Store secret values in Vault and use placeholders in Git. A plugin resolves values during manifest generation.</p></div></div><div class="callout warn"><b>Rule:</b> do not commit raw passwords, tokens, kubeconfigs, private keys, or unencrypted Kubernetes Secret values to a public repository.</div></div></section>
+<section class="page" data-title="10 · Troubleshoot"><div class="card"><h2>Choose the symptom</h2><div id="trBtns"></div><div id="trOut" class="step">Pick a symptom.</div></div><div class="card"><h2>Operator checklist</h2><pre>argocd app get &lt;app&gt;
+argocd app diff &lt;app&gt;
+argocd app sync &lt;app&gt;
+argocd app history &lt;app&gt;
+kubectl -n argocd get pods
+kubectl -n argocd logs deploy/argocd-repo-server
+kubectl -n argocd logs statefulset/argocd-application-controller</pre><p class="small">Exact workload kind/names can vary by installation; inspect the argocd namespace first.</p></div></section>
+<section class="page" data-title="11 · Quiz"><div class="card"><h2>Quick quiz</h2><div id="quiz" class="quiz"></div><h3>Score: <span id="score">0</span> / 8</h3></div><div class="card"><h2>Cheat sheet</h2><table class="compare"><tr><th>Term</th><th>Memory hook</th></tr><tr><td>Desired/target state</td><td>What Git declares</td></tr><tr><td>Live state</td><td>What Kubernetes currently has</td></tr><tr><td>Refresh</td><td>Recompare Git and live state</td></tr><tr><td>Sync</td><td>Move live resources toward target state</td></tr><tr><td>Prune</td><td>Delete resources removed from Git</td></tr><tr><td>Self-heal</td><td>Repair out-of-band live drift</td></tr><tr><td>Application</td><td>Source + destination + policy</td></tr><tr><td>AppProject</td><td>Boundary around applications</td></tr></table></div></section>
+</main>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true,theme:'neutral',securityLevel:'strict'});</script>
+<script>
+const pages=[...document.querySelectorAll('.page')],tabs=document.getElementById('tabs');pages.forEach((p,i)=>{let b=document.createElement('button');b.textContent=p.dataset.title;b.className=i?'':'on';b.onclick=()=>{pages.forEach(x=>x.classList.remove('on'));[...tabs.children].forEach(x=>x.classList.remove('on'));p.classList.add('on');b.classList.add('on');scrollTo({top:0,behavior:'smooth'})};tabs.appendChild(b)});
+let git=3,live=3,sha=1;function paint(){let out=git===live;syncState.textContent=out?'Synced':'OutOfSync';syncState.className='status '+(out?'synced':'out');diff.textContent=out?'No diff.':`Git says ${git}; cluster has ${live}.`;liveRep.textContent=live}function commitGit(){git=+gitRep.value;sha++;gitSha.textContent='revision: demo'+sha;paint()}function manualScale(){live=5;paint()}function doSync(){live=git;paint()}
+const terms={Application:'A group of Kubernetes resources managed together from a declared source to a destination.',Project:'A logical grouping/boundary for Applications, useful for multi-team setups.',TargetState:'Desired state represented by files in Git.',LiveState:'Resources that currently exist in the Kubernetes cluster.',SyncStatus:'Whether live state matches target state.',Sync:'The operation that moves an application toward target state.',Refresh:'Compare the latest desired state with live state and calculate differences.',Health:'Argo CD assessment of whether application resources are operating correctly.'};for(let [k,v] of Object.entries(terms)){let d=document.createElement('div');d.className='box';d.innerHTML='<b>'+k+'</b>';d.onclick=()=>termOut.innerHTML='<b>'+k+':</b> '+v;termsEl=terms;document.getElementById('terms').appendChild(d)}
+let ri=0,rt=[['rGit','1. Observe Git','Argo CD obtains desired manifests from the configured source.'],['rK8s','2. Observe cluster','Argo CD reads the live objects in the target cluster.'],['rArgo','3. Diff','It calculates whether target and live states match.'],['rArgo','4. Act or report','Depending on sync policy and user action, it synchronizes or reports OutOfSync.'],['rK8s','5. Repeat','The controller loop keeps reconciling over time.']];function rr(){document.querySelectorAll('#recActors .actor').forEach(x=>x.classList.remove('hot'));let s=rt[ri];document.getElementById(s[0]).classList.add('hot');recText.innerHTML='<b>'+s[1]+'</b><br>'+s[2]}function rec(n){ri=Math.max(0,Math.min(rt.length-1,ri+n));rr()}function recAuto(){ri=0;rr();let z=setInterval(()=>{if(ri===rt.length-1)return clearInterval(z);ri++;rr()},1200)}rr();
+let p={img:1,gitSvc:1,liveSvc:1,rep:3};function policy(){polResult.textContent=auto.checked?'Automated sync enabled. Commit a Git change to test it.':'Manual sync mode. Argo CD observes differences but waits for a sync action.'}function newImage(){p.img++;if(auto.checked)imageLive.textContent='v'+p.img;polResult.textContent=auto.checked?'Git changed → automated sync updates the image.':'Git changed → application becomes OutOfSync until manually synced.'}function deleteSvcGit(){p.gitSvc=0;svcGit.textContent='(deleted)';if(auto.checked&&prune.checked){p.liveSvc=0;svcLive.textContent='deleted';polResult.textContent='Prune enabled → resource removed from Git is deleted from cluster.'}else polResult.textContent='Service removed from Git, but it remains live because prune is not active for this automated flow.'}function drift(){p.rep=7;polRep.textContent=7;if(auto.checked&&heal.checked){setTimeout(()=>{p.rep=3;polRep.textContent=3;polResult.textContent='Self-heal repaired the manual cluster drift back to Git.'},500)}else polResult.textContent='Manual live drift detected. Without automated self-heal, it remains drifted.'}
+function journey(x){journeyOut.innerHTML={render:'<b>Render:</b> application-controller asks repo-server to fetch/interpret the configured source and produce desired Kubernetes manifests.',sync:'<b>Sync:</b> application-controller compares desired manifests to live objects and applies the changes needed by the sync operation.',login:'<b>Access:</b> argocd-server exposes the API used by the UI/CLI; authentication may integrate with Dex or another configured identity provider.'}[x]}
+const trs={OutOfSync:'Start with <code>argocd app diff &lt;app&gt;</code>. Decide whether the difference is an expected Git change, manual drift, or a field that should be ignored.',Degraded:'Sync and health are separate. Inspect the unhealthy Kubernetes resource, events, rollout state, probes and application details.',RepoError:'Inspect repository credentials, network/DNS/TLS reachability and repo-server logs. If manifest generation fails, run the same Helm/Kustomize rendering locally.',PruneRisk:'For critical resources, consider explicit pruning safeguards such as prune confirmation rather than broadly enabling deletion.',ManualDrift:'If Git must be authoritative, avoid direct kubectl changes. With automated + selfHeal, Argo CD can reconcile eligible drift back to Git.'};for(let [k,v] of Object.entries(trs)){let b=document.createElement('button');b.className='btn';b.textContent=k;b.onclick=()=>trOut.innerHTML='<b>'+k+'</b><br>'+v;trBtns.appendChild(b)}
+const qs=[['What is the source of truth in a GitOps workflow?',['The CI worker','Git desired state','kubectl history'],1],['What does OutOfSync mean?',['Live differs from target','Pods are unhealthy','Git is offline'],0],['What does prune control?',['Deleting resources removed from Git','Restarting Pods','Repository cleanup'],0],['What does selfHeal address?',['Manual live drift','Image build failures','Git merge conflicts'],0],['Which component renders/fetches repository source material?',['repo-server','Dex','notification-controller'],0],['Can an app be Synced but unhealthy?',['Yes','No'],0],['Application source + destination + policy best describes?',['Argo CD Application','Kubernetes Node','ServiceAccount'],0],['Why is pull-style GitOps attractive?',['CI must have cluster-admin','A controller reconciles from Git instead of CI pushing directly','It removes Git'],1]];let score=0;qs.forEach((q,qi)=>{let d=document.createElement('div');d.innerHTML='<p><b>'+(qi+1)+'. '+q[0]+'</b></p>';q[1].forEach((o,oi)=>{let b=document.createElement('button');b.textContent=o;b.onclick=()=>{if(d.dataset.done)return;d.dataset.done=1;if(oi===q[2]){b.className='good';score++;document.getElementById('score').textContent=score}else{b.className='bad';[...d.querySelectorAll('button')][q[2]].className='good'}};d.appendChild(b)});quiz.appendChild(d)});
+</script></body></html>

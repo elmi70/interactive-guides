@@ -1,111 +1,324 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GitOps & Argo CD Interactive Lab</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GitOps & Argo CD Mastery Lab</title>
 <style>
-:root{--bg:#f7f8fc;--card:#fff;--ink:#172033;--muted:#667085;--purple:#6d4aff;--cyan:#0ea5e9;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--line:#e5e7eb}*{box-sizing:border-box}body{margin:0;font:15px/1.55 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--ink)}header{padding:34px 20px 70px;color:white;text-align:center;background:linear-gradient(135deg,#5b36e8,#0ea5e9)}header h1{font-size:clamp(30px,5vw,58px);margin:0}header p{max-width:760px;margin:8px auto 0;opacity:.92}.tabs{max-width:1180px;margin:-36px auto 22px;padding:0 12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.tabs button,.btn{border:0;border-radius:999px;background:#fff;padding:10px 15px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px #0002}.tabs button.on{background:#fde68a}.wrap{max-width:1180px;margin:auto;padding:0 16px 60px}.page{display:none}.page.on{display:block}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0;box-shadow:0 6px 24px #0000000b}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.box{border:2px solid var(--line);border-radius:14px;padding:14px}.box h3{margin-top:0}.btn{background:#334155;color:#fff;box-shadow:none;margin:4px}.btn.p{background:var(--purple)}.btn.g{background:var(--green)}.btn.r{background:var(--red)}.btn.a{background:var(--amber);color:#111827}.status{display:inline-block;padding:4px 9px;border-radius:999px;font-weight:800}.synced{background:#d1fae5;color:#067647}.out{background:#fee2e2;color:#b42318}.healthy{background:#dbeafe;color:#175cd3}.mono,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:12px;overflow:auto}.step{border-left:5px solid var(--purple);padding:10px 14px;margin:9px 0;background:#f8f7ff;border-radius:8px}.small{color:var(--muted);font-size:.9em}.actor{padding:14px;border-radius:14px;text-align:center;background:#f8fafc;border:2px solid var(--line)}.actor.hot{border-color:var(--amber);background:#fffbeb}.diagram{overflow:auto;text-align:center}.mermaid{min-width:660px}.compare td,.compare th{border-bottom:1px solid var(--line);padding:9px;text-align:left}.compare{border-collapse:collapse;width:100%}.quiz button{display:block;width:100%;text-align:left;margin:6px 0;padding:10px;border:2px solid var(--line);border-radius:10px;background:white}.quiz button.good{border-color:var(--green);background:#ecfdf5}.quiz button.bad{border-color:var(--red);background:#fef2f2}.callout{background:#eff6ff;border-left:5px solid var(--cyan);padding:12px;border-radius:10px}.warn{background:#fff7ed;border-left-color:var(--amber)}details{margin:8px 0}summary{cursor:pointer;font-weight:800}@media(max-width:650px){.wrap{padding:0 10px 40px}.card{padding:14px}.tabs button{font-size:12px;padding:8px 10px}.mermaid{min-width:620px}}
-</style></head><body><header><h1>GitOps & Argo CD</h1><p>Learn by changing Git, breaking the cluster, syncing applications, and watching Argo CD reconcile desired state with live state.</p></header>
-<nav class="tabs" id="tabs"></nav><main class="wrap">
-<section class="page on" data-title="1 · GitOps"><div class="card"><h2>What problem does GitOps solve?</h2><div class="grid"><div class="box"><h3>🚚 Push deployment</h3><p>CI builds and then connects to the cluster to deploy.</p><div class="mono">CI → kubectl/helm → cluster</div><p class="small">The deployment system needs cluster credentials and write access.</p></div><div class="box"><h3>🧲 Pull deployment</h3><p>A controller inside the delivery boundary observes Git and reconciles the cluster.</p><div class="mono">Git ← watch/pull → Argo CD → Kubernetes API</div><p class="small">Git holds desired configuration; the controller performs reconciliation.</p></div></div></div>
-<div class="card"><h2>The GitOps loop</h2><div class="diagram"><pre class="mermaid">flowchart LR
- DEV[Developer] -->|commit + PR| GIT[(Git\nDesired State)]
- GIT -->|observe| ARGO[Argo CD\nReconciler]
- ARGO -->|compare| K8S[(Kubernetes\nLive State)]
- ARGO -->|sync| K8S
- K8S -. drift .-> ARGO
- ARGO -. status .-> DEV
-</pre></div><div class="callout"><b>Mental model:</b> Git says what should exist. Kubernetes says what does exist. Argo CD repeatedly compares the two and may act based on sync policy.</div></div>
-<div class="card"><h2>Interactive: Git as desired state</h2><div class="grid"><div class="box"><h3>Git</h3><label>replicas <input id="gitRep" type="number" value="3" min="0" max="10"></label><button class="btn p" onclick="commitGit()">Commit</button><p id="gitSha" class="small">revision: a1b2c3</p></div><div class="box"><h3>Cluster</h3><p>live replicas: <b id="liveRep">3</b></p><button class="btn r" onclick="manualScale()">kubectl scale → 5</button><button class="btn g" onclick="doSync()">Sync</button></div><div class="box"><h3>Argo CD</h3><p>Sync: <span id="syncState" class="status synced">Synced</span></p><p>Health: <span class="status healthy">Healthy</span></p><p id="diff">No diff.</p></div></div></div></section>
-<section class="page" data-title="2 · Argo CD"><div class="card"><h2>What Argo CD does</h2><p>Argo CD is a declarative GitOps continuous delivery tool for Kubernetes. It compares target state represented by Git with live cluster state, reports deviations, and supports manual or automatic synchronization.</p><div class="diagram"><pre class="mermaid">flowchart TB
- G[(Git / Helm / Kustomize / YAML)] --> R[repo-server\nrender desired manifests]
- UI[CLI / UI / API] --> S[argocd-server]
- S --> C[application-controller]
- R --> C
- C -->|compare + reconcile| K[(Kubernetes clusters)]
- C --> M[status / health / history]
- N[notifications-controller] --> X[Notifications]
- C --> N
-</pre></div></div>
-<div class="card"><h2>Core terminology: click a concept</h2><div id="terms" class="grid"></div><div id="termOut" class="callout">Choose a concept.</div></div></section>
-<section class="page" data-title="3 · Reconciliation"><div class="card"><h2>Observe → Diff → Act</h2><div id="recActors" class="grid"><div class="actor" id="rGit">📚<br><b>Git desired state</b></div><div class="actor" id="rArgo">🐙<br><b>Argo CD</b></div><div class="actor" id="rK8s">☸️<br><b>Live cluster</b></div></div><div id="recText" class="step"></div><div><button class="btn" onclick="rec(-1)">◀ Back</button><button class="btn p" onclick="rec(1)">Next ▶</button><button class="btn a" onclick="recAuto()">Play all</button></div></div>
-<div class="card"><h2>Webhook vs reconciliation timer</h2><p>A webhook can notify Argo CD about a Git change quickly. Reconciliation still provides the controller loop that compares Git with cluster state.</p><div class="diagram"><pre class="mermaid">sequenceDiagram
- participant D as Developer
- participant G as Git
- participant A as Argo CD
- participant K as Kubernetes
- D->>G: push commit
- G-->>A: webhook event
- A->>G: read desired state
- A->>K: read live state
- A->>A: diff
- A->>K: sync if policy/manual action allows
-</pre></div></div></section>
-<section class="page" data-title="4 · Sync Policy"><div class="card"><h2>Automated, prune, self-heal</h2><p>Toggle the options, then try Git changes and manual cluster drift.</p><div><label><input id="auto" type="checkbox" onchange="policy()"> automated</label> &nbsp; <label><input id="prune" type="checkbox" onchange="policy()"> prune</label> &nbsp; <label><input id="heal" type="checkbox" onchange="policy()"> selfHeal</label></div><div class="grid" style="margin-top:14px"><div class="box"><h3>Git</h3><p>Deployment + <span id="svcGit">Service</span></p><button class="btn p" onclick="newImage()">Commit new image</button><button class="btn r" onclick="deleteSvcGit()">Delete Service from Git</button></div><div class="box"><h3>Cluster</h3><p>image: <b id="imageLive">v1</b></p><p>Service: <b id="svcLive">present</b></p><p>replicas: <b id="polRep">3</b></p><button class="btn r" onclick="drift()">kubectl scale → 7</button></div><div class="box"><h3>Result</h3><p id="polResult">Manual sync mode. Argo CD observes differences but waits for a sync action.</p></div></div><details><summary>Show example Application syncPolicy</summary><pre>syncPolicy:
+:root{--bg:#f5f7fb;--card:#fff;--ink:#182230;--muted:#667085;--p:#6941c6;--c:#0ba5ec;--g:#12b76a;--a:#f79009;--r:#f04438;--line:#e4e7ec}*{box-sizing:border-box}body{margin:0;font:15px/1.55 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--ink)}header{background:linear-gradient(125deg,#5925dc,#0ba5ec);color:#fff;text-align:center;padding:38px 18px 74px}h1{margin:0;font-size:clamp(32px,6vw,64px)}header p{max-width:850px;margin:8px auto 0}.tabs{max-width:1250px;margin:-42px auto 20px;padding:0 10px;display:flex;gap:7px;flex-wrap:wrap;justify-content:center}.tabs button,.btn{border:0;border-radius:999px;padding:9px 13px;font-weight:750;cursor:pointer}.tabs button{background:#fff;box-shadow:0 4px 16px #0002}.tabs button.on{background:#fedf89}.wrap{max-width:1220px;margin:auto;padding:0 14px 60px}.page{display:none}.page.on{display:block}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 5px 24px #1018280d}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:13px}.box{border:2px solid var(--line);border-radius:14px;padding:14px}.box.active{border-color:var(--a);background:#fffaeb}.btn{background:#344054;color:#fff;margin:3px}.btn.p{background:var(--p)}.btn.g{background:var(--g)}.btn.a{background:var(--a);color:#111}.btn.r{background:var(--r)}.btn:disabled{opacity:.35}.muted{color:var(--muted)}pre,.mono{background:#101828;color:#e4e7ec;border-radius:12px;padding:12px;overflow:auto;font-family:ui-monospace,Consolas,monospace}.callout{padding:12px;border-radius:10px;background:#eff8ff;border-left:5px solid var(--c);margin:10px 0}.warn{background:#fffaeb;border-color:var(--a)}.danger{background:#fef3f2;border-color:var(--r)}.ok{background:#ecfdf3;border-color:var(--g)}.status{font-weight:800;border-radius:99px;padding:4px 9px;background:#f2f4f7}.synced{background:#d1fadf;color:#05603a}.out{background:#fee4e2;color:#b42318}.healthy{background:#d1e9ff;color:#175cd3}.diagram{overflow:auto;text-align:center}.mermaid{min-width:680px}.step{padding:12px;border-left:5px solid var(--p);background:#f9f5ff;border-radius:10px;min-height:66px}.compare{border-collapse:collapse;width:100%}.compare th,.compare td{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.pill{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:3px 8px;margin:2px}.quiz button{display:block;width:100%;text-align:left;padding:10px;margin:5px 0;background:#fff;border:2px solid var(--line);border-radius:10px}.quiz .good{border-color:var(--g);background:#ecfdf3}.quiz .bad{border-color:var(--r);background:#fef3f2}.tree{white-space:pre;background:#f8fafc;color:#344054;border:1px solid var(--line)}details{margin:8px 0}summary{font-weight:800;cursor:pointer}input,select{padding:7px;border:1px solid #d0d5dd;border-radius:8px}@media(max-width:680px){.tabs button{font-size:11px;padding:7px 9px}.card{padding:13px}.mermaid{min-width:620px}}
+</style></head><body><header><h1>GitOps & Argo CD Mastery</h1><p>From first principles to installation, applications, reconciliation, delivery patterns, security, operations and production troubleshooting.</p></header><nav class="tabs" id="tabs"></nav><main class="wrap">
+<section class="page on" data-title="1 Foundations"><div class="card"><h2>Why GitOps exists</h2><div class="grid"><div class="box"><h3>Traditional push</h3><div class="mono">CI → kubectl/helm → Cluster</div><p>CI needs deployment logic and cluster credentials. Manual changes create unrecorded drift.</p></div><div class="box"><h3>GitOps pull</h3><div class="mono">Git ← controller → Cluster</div><p>Git declares the desired state. An in-cluster controller compares and reconciles it with the live state.</p></div></div></div><div class="card"><h2>The four practical ideas</h2><div class="grid"><div class="box"><b>1. Declarative</b><p>Describe the end state, not imperative steps.</p></div><div class="box"><b>2. Versioned</b><p>Git stores reviewable, auditable desired state.</p></div><div class="box"><b>3. Reconciled</b><p>A controller continuously compares desired and actual state.</p></div><div class="box"><b>4. Pulled</b><p>The delivery controller fetches and applies changes instead of CI directly driving the cluster.</p></div></div></div><div class="card"><h2>End-to-end GitOps loop</h2><div class="diagram"><pre class="mermaid">flowchart LR
+DEV[Developer] -->|code PR| SRC[(Source repo)]
+SRC --> CI[CI: test + build]
+CI --> REG[(Image registry)]
+CI -->|update image tag PR| CFG[(Config repo)]
+CFG -->|observe| ARGO[Argo CD]
+ARGO -->|render + compare| K8S[(Kubernetes)]
+K8S -.live drift.-> ARGO
+ARGO -->|status / metrics / notifications| OPS[Platform team]</pre></div></div></section>
+<section class="page" data-title="2 Install"><div class="card"><h2>Interactive installation lab</h2><p>Choose an installation approach and move through the full bootstrap.</p><div class="grid"><div class="box"><label>Install type <select id="installType"><option>Standard multi-tenant</option><option>Core only</option><option>High availability</option><option>Helm chart</option></select></label><p><button class="btn p" onclick="instNext()">Run next step</button><button class="btn" onclick="instReset()">Reset</button></p><p>Progress: <b id="instProg">0 / 8</b></p></div><div class="box"><div id="instText" class="step">Start by checking prerequisites.</div></div></div><pre id="instCmd">kubectl version --client
+kubectl config current-context
+kubectl get nodes</pre></div><div class="card"><h2>What gets installed</h2><div class="diagram"><pre class="mermaid">flowchart TB
+subgraph argocd namespace
+API[argocd-server
+UI + API + auth]
+REPO[repo-server
+fetch + render]
+CTRL[application-controller
+compare + reconcile]
+SET[applicationset-controller]
+NOT[notifications-controller]
+REDIS[(Redis cache)]
+end
+GIT[(Git / Helm repo)] --> REPO
+REPO --> CTRL
+API --> CTRL
+CTRL --> K[(Kubernetes API)]
+SET --> API
+CTRL --> NOT
+CTRL --> REDIS</pre></div></div><div class="card"><h2>Production installation decisions</h2><table class="compare"><tr><th>Decision</th><th>What to consider</th></tr><tr><td>Version</td><td>Pin a tested version instead of consuming a moving stable branch in production.</td></tr><tr><td>Exposure</td><td>Port-forward for learning; ingress/load balancer plus trusted TLS for shared use.</td></tr><tr><td>Scale/HA</td><td>Use the HA manifests or chart values when availability and larger application counts require it.</td></tr><tr><td>Namespace</td><td>The official manifests assume <code>argocd</code>; changing it requires updating namespace references.</td></tr><tr><td>Bootstrap</td><td>Move from imperative install to a controlled bootstrap pattern, then manage configuration declaratively.</td></tr></table></div></section>
+<section class="page" data-title="3 First App"><div class="card"><h2>Create your first Application</h2><div class="grid"><div class="box"><label>Name <input id="appName" value="demo-app"></label><br><label>Path <input id="appPath" value="apps/demo"></label><br><label>Namespace <input id="appNs" value="demo"></label><p><button class="btn p" onclick="makeApp()">Generate Application YAML</button></p></div><div class="box"><h3>Application anatomy</h3><p><span class="pill">source</span> repo + revision + path/chart</p><p><span class="pill">destination</span> cluster + namespace</p><p><span class="pill">project</span> policy boundary</p><p><span class="pill">syncPolicy</span> delivery behavior</p></div></div><pre id="appYaml">Select Generate Application YAML.</pre></div><div class="card"><h2>Imperative vs declarative creation</h2><div class="grid"><div class="box"><h3>CLI</h3><pre>argocd app create demo-app   --repo &lt;repo-url&gt;   --path apps/demo   --dest-server https://kubernetes.default.svc   --dest-namespace demo</pre></div><div class="box"><h3>Application CR</h3><p>Store an <code>Application</code> manifest and apply/manage it declaratively. This is the foundation for App-of-Apps and other bootstrap patterns.</p></div></div></div></section>
+<section class="page" data-title="4 Reconcile"><div class="card"><h2>Interactive desired vs live state</h2><div class="grid"><div class="box"><h3>Git desired state</h3><label>replicas <input id="gRep" type="number" min="0" max="20" value="3"></label><p><button class="btn p" onclick="commitDesired()">Commit Git change</button></p><p id="revision">revision: 93ac1f</p></div><div class="box"><h3>Live cluster</h3><p>replicas: <b id="lRep">3</b></p><button class="btn r" onclick="manualDrift()">kubectl scale → 8</button><button class="btn g" onclick="syncNow()">Manual Sync</button></div><div class="box"><h3>Argo CD</h3><p>Sync: <span id="sStat" class="status synced">Synced</span></p><p>Health: <span class="status healthy">Healthy</span></p><p id="dText">Desired and live match.</p></div></div></div><div class="card"><h2>Reconciliation mechanics</h2><div class="diagram"><pre class="mermaid">sequenceDiagram
+participant Git
+participant Repo as repo-server
+participant Ctrl as application-controller
+participant K8s as Kubernetes API
+Ctrl->>Repo: Generate desired manifests
+Repo->>Git: Fetch revision/path/chart
+Git-->>Repo: Source content
+Repo-->>Ctrl: Rendered manifests
+Ctrl->>K8s: Read live objects
+K8s-->>Ctrl: Live state
+Ctrl->>Ctrl: Diff + status
+Ctrl->>K8s: Apply changes when sync occurs</pre></div></div></section>
+<section class="page" data-title="5 Sync Policy"><div class="card"><h2>Automated sync playground</h2><p><label><input id="auto" type="checkbox"> automated</label> <label><input id="prune" type="checkbox"> prune</label> <label><input id="heal" type="checkbox"> selfHeal</label> <label><input id="empty" type="checkbox"> allowEmpty</label></p><div class="grid"><div class="box"><h3>Try Git changes</h3><button class="btn p" onclick="gitImage()">Commit image vNext</button><button class="btn r" onclick="removeService()">Remove Service from Git</button><button class="btn r" onclick="emptyGit()">Remove every resource</button></div><div class="box"><h3>Try live drift</h3><button class="btn r" onclick="liveScale()">kubectl scale → 9</button><button class="btn r" onclick="liveLabel()">kubectl add label</button></div><div class="box"><h3>Outcome</h3><p id="policyOut">Choose settings, then trigger an event.</p></div></div><details><summary>Example sync policy</summary><pre>syncPolicy:
   automated:
     enabled: true
     prune: true
-    selfHeal: true</pre></details></div>
-<div class="card"><h2>Remember the switches</h2><table class="compare"><tr><th>Option</th><th>What it controls</th></tr><tr><td>automated</td><td>Whether detected desired-state changes can be synced automatically.</td></tr><tr><td>prune</td><td>Whether resources removed from Git may be deleted from the cluster during automated sync.</td></tr><tr><td>selfHeal</td><td>Whether live-cluster drift can trigger automated reconciliation back toward Git.</td></tr></table></div></section>
-<section class="page" data-title="5 · Application"><div class="card"><h2>Application = source + destination + policy</h2><div class="diagram"><pre class="mermaid">flowchart LR
- SRC[Source\nrepoURL + revision + path/chart] --> APP[Argo CD Application]
- APP --> DST[Destination\ncluster + namespace]
- POL[Project + sync policy + options] --> APP
- APP --> RES[Deployment / Service / ConfigMap ...]
-</pre></div><pre>apiVersion: argoproj.io/v1alpha1
+    selfHeal: true
+    allowEmpty: false
+  syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground</pre></details></div><div class="card"><h2>Prune safety and sync options</h2><p><span class="pill">Prune=false</span><span class="pill">Prune=confirm</span><span class="pill">Validate=false</span><span class="pill">SkipDryRunOnMissingResource=true</span><span class="pill">ServerSideApply=true</span><span class="pill">RespectIgnoreDifferences=true</span></p><div class="callout warn">Treat destructive automation as a design decision. For critical resources such as namespaces, use explicit safeguards instead of assuming every object should be deleted automatically.</div></div></section>
+<section class="page" data-title="6 Sources"><div class="card"><h2>Manifest sources</h2><div id="sources" class="grid"></div><div id="sourceOut" class="step">Choose a source type.</div></div><div class="card"><h2>Separate source and configuration repositories?</h2><table class="compare"><tr><th>Separate config repo advantages</th><th>Trade-offs</th></tr><tr><td>Config changes have an independent review/history; CI can update an image reference without rebuilding source; access controls can differ.</td><td>More repositories and promotion automation; avoiding drift between source and deployment config requires clear ownership.</td></tr><tr><td colspan="2"><b>Practical pattern:</b> CI tests source, builds an immutable image, pushes it, then opens a PR changing the image digest/tag in the configuration repository.</td></tr></table></div></section>
+<section class="page" data-title="7 Projects & RBAC"><div class="card"><h2>AppProject is the tenant boundary</h2><div class="diagram"><pre class="mermaid">flowchart LR
+TEAM[Team / SSO group] --> ROLE[Project role]
+ROLE --> PROJ[AppProject]
+PROJ --> SRC[Allowed source repos]
+PROJ --> DST[Allowed clusters/namespaces]
+PROJ --> KINDS[Allowed/denied resource kinds]
+PROJ --> APPS[Applications]</pre></div><div class="grid"><div class="box"><h3>Project controls</h3><p>Source repositories, destinations, cluster resource allow/deny lists, namespace resource allow/deny lists, orphaned-resource monitoring, sync windows and roles.</p></div><div class="box"><h3>Global RBAC</h3><p><code>argocd-rbac-cm</code> defines default roles and policies for applications, projects, clusters, repositories and other API resources.</p></div></div><pre>p, role:team-a, applications, get, team-a/*, allow
+p, role:team-a, applications, sync, team-a/*, allow
+g, platform-team-a, role:team-a</pre></div></section>
+
+<section class="page" data-title="8 App vs AppSet vs Project"><div class="card"><h2>Three objects, three jobs</h2>
+<table class="compare"><tr><th></th><th>Application</th><th>ApplicationSet</th><th>AppProject</th></tr>
+<tr><td><b>One-line job</b></td><td>Deploy one source to one destination</td><td>Generate many Applications from a template + data</td><td>Set the rules Applications must obey</td></tr>
+<tr><td><b>Question it answers</b></td><td>"What do I deploy and where?"</td><td>"How do I stamp out N Applications?"</td><td>"What is this team allowed to deploy?"</td></tr>
+<tr><td><b>Kind</b></td><td><code>Application</code></td><td><code>ApplicationSet</code></td><td><code>AppProject</code></td></tr>
+<tr><td><b>Controlled by</b></td><td>application-controller</td><td>applicationset-controller</td><td>Enforced by Argo CD when Applications are created or synced</td></tr>
+<tr><td><b>Relationship</b></td><td>Belongs to exactly one project</td><td>Owns the Applications it generates</td><td>Contains many Applications</td></tr>
+<tr><td><b>Does it deploy to the cluster?</b></td><td>Yes, via sync</td><td>No, it only creates Application objects</td><td>No, it only restricts</td></tr>
+<tr><td><b>Think of it as</b></td><td>One delivery pipeline</td><td>A factory</td><td>A fence</td></tr></table>
+<div class="diagram"><pre class="mermaid">flowchart TB
+SET["ApplicationSet<br/>generator + template"] -->|generates| A1["Application dev"]
+SET -->|generates| A2["Application staging"]
+SET -->|generates| A3["Application prod"]
+PROJ["AppProject team-a<br/>allowed repos / namespaces / kinds"] -.constrains.-> A1
+PROJ -.constrains.-> A2
+PROJ -.constrains.-> A3
+A1 --> R1[("Deployments, Services, ConfigMaps")]
+A2 --> R2[("Deployments, Services, ConfigMaps")]
+A3 --> R3[("Deployments, Services, ConfigMaps")]</pre></div>
+<div class="callout"><b>Chain to remember:</b> ApplicationSet creates Applications. Each Application belongs to a Project. The Project limits what the Application may do. The Application deploys the resources.</div></div>
+
+<div class="card"><h2>Lab 1: Does the AppProject let this Application deploy?</h2><p>The <b>team-a</b> project only allows repos under <code>team-a</code>, destination namespaces matching <code>team-a-*</code>, no cluster-scoped resources, and blocks <code>ResourceQuota</code>. The <b>default</b> project allows everything.</p>
+<div class="grid"><div class="box"><label>Project <select id="pjProj"><option value="team-a">team-a (restricted)</option><option value="default">default (built-in)</option></select></label><br><br>
+<label>Source repo <select id="pjRepo"><option value="team-a">https://example.invalid/team-a/payments.git</option><option value="team-b">https://example.invalid/team-b/orders.git</option></select></label><br><br>
+<label>Destination namespace <select id="pjNs"><option>team-a-dev</option><option>team-a-prod</option><option>team-b-dev</option><option>kube-system</option></select></label><br><br>
+<label>Resource kind <select id="pjKind"><option>Deployment</option><option>Service</option><option>ClusterRole</option><option>ClusterRoleBinding</option><option>ResourceQuota</option></select></label><p><button class="btn p" onclick="projTry()">Try to sync</button></p></div>
+<div class="box"><h3>Checks</h3><div id="pjOut" class="step">Choose values, then Try to sync.</div></div></div></div>
+
+<div class="card"><h2>AppProject YAML</h2><pre>apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-a
+  namespace: argocd
+spec:
+  description: Team A applications
+  sourceRepos:
+    - https://example.invalid/team-a/*
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: team-a-*
+  clusterResourceWhitelist: []          # no cluster-scoped resources
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+  roles:
+    - name: deployer
+      description: Can view and sync, cannot delete
+      policies:
+        - p, proj:team-a:deployer, applications, get, team-a/*, allow
+        - p, proj:team-a:deployer, applications, sync, team-a/*, allow
+      groups:
+        - team-a-developers</pre>
+<div class="callout warn"><b>The default project is permissive.</b> Every Application that doesn't name a project lands in <code>default</code>, which allows any source repo, any destination and any resource kind. For multi-team use, create restricted projects and don't use <code>default</code> for real workloads.</div>
+<table class="compare"><tr><th>Project field</th><th>Restricts</th></tr>
+<tr><td><code>sourceRepos</code></td><td>Which Git/Helm/OCI sources Applications may use</td></tr>
+<tr><td><code>destinations</code></td><td>Which clusters and namespaces they may deploy into</td></tr>
+<tr><td><code>clusterResourceWhitelist</code> / <code>Blacklist</code></td><td>Which cluster-scoped kinds (ClusterRole, Namespace, CRD...) are allowed or denied</td></tr>
+<tr><td><code>namespaceResourceWhitelist</code> / <code>Blacklist</code></td><td>Which namespaced kinds are allowed or denied</td></tr>
+<tr><td><code>roles</code></td><td>Project-scoped permissions, mapped to SSO groups or tokens</td></tr>
+<tr><td><code>syncWindows</code></td><td>When syncs are allowed or denied (for example no prod syncs on Friday evening)</td></tr>
+<tr><td><code>orphanedResources</code></td><td>Warn about resources in the namespace that no Application manages</td></tr></table></div>
+
+<div class="card"><h2>Lab 2: How an ApplicationSet becomes Applications</h2>
+<div class="grid"><div class="box"><label>Generator <select id="asGen" onchange="asRender()"><option value="list">List</option><option value="git">Git directories</option><option value="cluster">Clusters</option></select></label><br><br>
+<label>Names (comma separated) <input id="asNames" value="dev,staging,prod" style="width:100%"></label><br><br>
+<label>Project <input id="asProj" value="team-a"></label><br><br><button class="btn p" onclick="asRender()">Generate</button><p class="muted" id="asNote"></p></div>
+<div class="box"><h3>1. ApplicationSet (what you write)</h3><pre id="asYaml"></pre></div></div>
+<h3>2. Applications the controller creates</h3><div id="asApps" class="grid"></div><h3>3. One generated Application</h3><pre id="asOne"></pre>
+<div class="callout warn"><b>Don't hand-edit generated Applications.</b> The ApplicationSet owns them and may overwrite your change. Change the template or the generator instead.</div>
+<div class="callout danger"><b>Treat ApplicationSet write access as privileged.</b> Whoever can edit an ApplicationSet can decide which Applications exist, so restrict it to platform admins. The <code>project</code> in the template is what keeps generated Applications inside a fence.</div></div>
+
+<div class="card"><h2>Lab 3: Which object do you need?</h2><p>Pick the best fit for each scenario.</p><div id="scn"></div><p><b>Score: <span id="scnScore">0</span> / 7</b></p></div>
+
+<div class="card"><h2>Common mistakes</h2><table class="compare"><tr><th>Mistake</th><th>Why it hurts</th><th>Fix</th></tr>
+<tr><td>Using <code>default</code> project for everything</td><td>No restrictions; any team can deploy anywhere</td><td>One restricted AppProject per team or tenant</td></tr>
+<tr><td>Creating 40 near-identical Applications by hand</td><td>Drift and copy-paste errors</td><td>One ApplicationSet with a generator</td></tr>
+<tr><td>Editing a generated Application</td><td>Overwritten by the ApplicationSet</td><td>Change the template or generator input</td></tr>
+<tr><td>Thinking a project deploys things</td><td>It only restricts</td><td>Applications deploy; projects constrain</td></tr>
+<tr><td>Expecting an ApplicationSet to deploy resources directly</td><td>It only creates Application objects</td><td>Each generated Application deploys its own resources</td></tr>
+<tr><td>Forgetting to set <code>project:</code> in the template</td><td>Generated Applications fall into <code>default</code></td><td>Always set the project in the ApplicationSet template</td></tr></table></div></section>
+<section class="page" data-title="9 Architecture"><div class="card"><h2>Component explorer</h2><div id="components" class="grid"></div><div id="compOut" class="step">Select a component.</div></div><div class="card"><h2>Architecture</h2><div class="diagram"><pre class="mermaid">flowchart TB
+UI[Web UI / CLI / API clients] --> SERVER[argocd-server]
+IDP[Dex / external IdP] --> SERVER
+GIT[(Git / Helm / OCI sources)] --> REPO[repo-server]
+REPO --> CTRL[application-controller]
+SERVER --> CTRL
+CTRL --> CL1[(Cluster A)]
+CTRL --> CL2[(Cluster B)]
+CTRL --> REDIS[(Redis)]
+CTRL --> NOT[notifications-controller]
+SET[applicationset-controller] --> APP[Application CRs]
+APP --> CTRL</pre></div></div></section>
+<section class="page" data-title="10 Order & Rollout"><div class="card"><h2>Hooks and sync waves simulator</h2><div class="grid"><div class="box"><label>Current phase <select id="phase"><option>PreSync</option><option>Sync wave -1</option><option>Sync wave 0</option><option>Sync wave 1</option><option>PostSync</option><option>SyncFail</option></select></label><button class="btn p" onclick="runPhase()">Run phase</button><p id="phaseOut">Choose a phase.</p></div><div class="box"><h3>Example ordering</h3><ol><li>PreSync database backup</li><li>wave -1 CRDs</li><li>wave 0 namespace/config</li><li>wave 1 workload</li><li>PostSync smoke test</li></ol></div></div><div class="diagram"><pre class="mermaid">flowchart LR
+PRE[PreSync hooks] --> W1[Wave -1] --> W0[Wave 0] --> W2[Wave 1] --> POST[PostSync hooks]
+W1 -.failure.-> FAIL[SyncFail hooks]
+W0 -.failure.-> FAIL
+W2 -.failure.-> FAIL</pre></div><div class="callout">Hooks and waves order resources. Progressive delivery strategies such as canary/blue-green traffic management are typically handled with Argo Rollouts or another rollout controller, not by basic Argo CD sync alone.</div></div></section>
+<section class="page" data-title="11 AppSet"><div class="card"><h2>ApplicationSet generator lab</h2><label>Generator <select id="gen"><option>List</option><option>Git directory</option><option>Cluster</option><option>Matrix</option><option>Merge</option><option>Pull request</option><option>SCM provider</option></select></label><label> Environments <input id="envs" value="dev,staging,prod"></label><button class="btn p" onclick="genApps()">Generate Applications</button><div id="appsOut" class="grid" style="margin-top:12px"></div><div class="callout warn">ApplicationSet manages generated Application resources. Avoid hand-editing a generated Application as the generator may overwrite the change.</div></div><div class="card"><h2>ApplicationSet flow</h2><div class="diagram"><pre class="mermaid">flowchart LR
+GEN[Generator
+clusters / git / list / matrix] --> SET[ApplicationSet controller]
+TPL[Application template] --> SET
+SET --> A1[Application dev]
+SET --> A2[Application staging]
+SET --> A3[Application prod]
+A1 --> C1[(dev)]
+A2 --> C2[(staging)]
+A3 --> C3[(prod)]</pre></div></div></section>
+<section class="page" data-title="12 Bootstrap"><div class="card"><h2>Bootstrap patterns</h2><div class="grid"><div class="box"><h3>App-of-Apps</h3><p>A root Application points to child Application manifests. Simple and widely understood, but powerful: protect the root carefully.</p></div><div class="box"><h3>ApplicationSet</h3><p>Generate Applications from data: clusters, directories, lists, pull requests or combinations.</p></div><div class="box"><h3>Self-management</h3><p>Argo CD can manage much of its own declarative configuration after initial bootstrap. Design an explicit recovery path if the control plane is broken.</p></div></div><pre class="tree">platform-config/
+├── bootstrap/
+│   ├── root-application.yaml
+│   └── projects/
+├── applicationsets/
+├── clusters/
+│   ├── dev/
+│   ├── staging/
+│   └── prod/
+├── apps/
+│   ├── payments/base/
+│   └── payments/overlays/
+└── platform/
+    ├── ingress/
+    ├── observability/
+    └── policies/</pre></div></section>
+<section class="page" data-title="13 Multi-cluster"><div class="card"><h2>Multi-cluster delivery</h2><div class="diagram"><pre class="mermaid">flowchart LR
+ARGO[Central Argo CD] --> DEV[(dev cluster)]
+ARGO --> STG[(staging cluster)]
+ARGO --> PROD[(prod cluster)]
+CFG[(Git)] --> ARGO
+PROJ[AppProjects + RBAC] --> ARGO</pre></div><div class="grid"><div class="box"><h3>Central model</h3><p>One Argo CD manages several destination clusters. Operations are centralized, but credentials and blast radius require strong boundaries.</p></div><div class="box"><h3>Per-cluster model</h3><p>Each cluster has its own Argo CD. Isolation improves, while upgrades, config and observability become distributed.</p></div><div class="box"><h3>Promotion</h3><p>Promote by updating versioned desired state through environments, rather than running an imperative deploy command against each cluster.</p></div></div></div></section>
+<section class="page" data-title="14 Secrets"><div class="card"><h2>Secret strategies</h2><div class="grid"><div class="box"><h3>Sealed Secrets</h3><p>Commit an encrypted custom resource; a cluster controller creates the Secret.</p></div><div class="box"><h3>External Secrets</h3><p>Commit a reference; a controller reads a secret manager and creates/refreshes Secret objects.</p></div><div class="box"><h3>SOPS</h3><p>Commit encrypted files and decrypt only in an authorized delivery workflow.</p></div><div class="box"><h3>Vault plugin</h3><p>Resolve placeholders from Vault during manifest generation.</p></div></div><div class="callout danger"><b>Never commit:</b> plaintext passwords, tokens, kubeconfigs, private keys, cloud credentials or raw production Secret values. Base64 is encoding, not encryption.</div></div></section>
+<section class="page" data-title="15 Security"><div class="card"><h2>Production security checklist</h2><div id="secList"></div><button class="btn p" onclick="secScore()">Evaluate</button><div id="secOut" class="step">Check the controls you have implemented.</div></div><div class="card"><h2>Supply-chain flow</h2><div class="diagram"><pre class="mermaid">flowchart LR
+PR[Reviewed PR] --> CI[Tests + policy checks]
+CI --> IMG[Signed/scanned image]
+IMG --> REG[(Registry)]
+CI --> CFG[Config PR with digest]
+CFG --> ARGO[Argo CD]
+ARGO --> POLICY[Admission policy]
+POLICY --> K8S[(Cluster)]</pre></div></div></section>
+<section class="page" data-title="16 Observe"><div class="card"><h2>Operations and observability</h2><div class="grid"><div class="box"><h3>Status dimensions</h3><p><b>Sync</b>: Git vs live.<br><b>Health</b>: workload assessment.<br><b>Operation</b>: did the sync operation succeed?</p></div><div class="box"><h3>Signals</h3><p>Metrics, application conditions, Kubernetes events, controller/repo-server logs, audit events, notification triggers and repository/webhook errors.</p></div><div class="box"><h3>Useful alerts</h3><p>Persistent OutOfSync, health Degraded, sync failed, reconciliation/render errors, repository unavailable and controller queue/backlog symptoms.</p></div></div><pre>argocd app get &lt;app&gt;
+argocd app diff &lt;app&gt;
+argocd app history &lt;app&gt;
+argocd app manifests &lt;app&gt;
+kubectl -n argocd get pods
+kubectl -n argocd logs deploy/argocd-repo-server
+kubectl -n argocd logs statefulset/argocd-application-controller</pre></div></section>
+<section class="page" data-title="17 Troubleshoot"><div class="card"><h2>Diagnostic decision tree</h2><div id="trBtns"></div><div id="trOut" class="step">Select a symptom.</div></div><div class="card"><h2>Systematic method</h2><ol><li>Confirm the Application source, revision, path/chart, destination and project.</li><li>Refresh and inspect conditions, sync status, health status and operation result.</li><li>Render expected manifests locally with the same Helm/Kustomize inputs.</li><li>Use app diff to identify exactly which field/object differs.</li><li>Inspect repo-server for fetch/render failures and application-controller for compare/sync failures.</li><li>Inspect the Kubernetes resource, events, rollout and admission-policy response.</li><li>Only add ignore rules after proving that the difference is expected and safe.</li></ol></div></section>
+<section class="page" data-title="18 Rollback"><div class="card"><h2>Rollback means changing desired state</h2><div class="grid"><div class="box"><h3>Recommended GitOps rollback</h3><p>Revert or create a new Git commit that restores a known-good desired state. Review, merge, then reconcile.</p><button class="btn g" onclick="roll('git')">Simulate git revert</button></div><div class="box"><h3>Argo CD history rollback</h3><p>Can restore an earlier deployed revision, but reconcile your Git source as well so Git and live state do not fight.</p><button class="btn a" onclick="roll('argo')">Simulate app rollback</button></div></div><div id="rollOut" class="step">Choose a method.</div><div class="diagram"><pre class="mermaid">gitGraph
+commit id: "v1 good"
+commit id: "v2 bad"
+commit id: "revert v2"
+commit id: "v1 restored"</pre></div></div></section>
+<section class="page" data-title="19 Quiz"><div class="card"><h2>Mastery quiz</h2><div id="quiz" class="quiz"></div><h3>Score: <span id="score">0</span> / 20</h3></div><div class="card"><h2>Capstone labs</h2><ol><li>Install a pinned Argo CD version in a local kind/k3d cluster and access it without exposing it publicly.</li><li>Create an AppProject that permits one repository, one namespace and only needed resource kinds.</li><li>Deploy a plain-YAML app, then convert it to Kustomize overlays and a Helm-based source.</li><li>Enable auto-sync without prune, test drift, then introduce prune and self-heal deliberately.</li><li>Use waves/hooks for a migration Job, application rollout and smoke test.</li><li>Create an ApplicationSet for dev/staging/prod, with <code>project:</code> set in the template.</li><li>Try to deploy a ClusterRole and a forbidden namespace through a restricted AppProject and read the denial messages.</li><li>Integrate an encrypted or external secret workflow.</li><li>Produce alerts for persistent OutOfSync and Degraded health.</li><li>Break repository access, rendering, RBAC and admission policy one at a time; diagnose each.</li><li>Perform a Git revert rollback and document recovery if Argo CD itself is unavailable.</li></ol></div></section>
+</main><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true,theme:'neutral',securityLevel:'strict'});</script>
+<script>
+const $=x=>document.getElementById(x);const pages=[...document.querySelectorAll('.page')],tabs=$('tabs');pages.forEach((p,i)=>{let b=document.createElement('button');b.textContent=p.dataset.title;b.className=i?'':'on';b.onclick=()=>{pages.forEach(x=>x.classList.remove('on'));[...tabs.children].forEach(x=>x.classList.remove('on'));p.classList.add('on');b.classList.add('on');scrollTo({top:0,behavior:'smooth'})};tabs.appendChild(b)});
+let ii=0;const isteps=[['Check prerequisites',`kubectl version --client
+kubectl config current-context
+kubectl get nodes`],['Create namespace',`kubectl create namespace argocd`],['Install components',`kubectl apply -n argocd --server-side --force-conflicts -f <PINNED_INSTALL_MANIFEST_URL>`],['Wait and inspect',`kubectl -n argocd get pods
+kubectl -n argocd rollout status deploy/argocd-server`],['Access API server',`kubectl -n argocd port-forward svc/argocd-server 8080:443`],['Install/use CLI',`argocd version --client`],['Authenticate',`Use the supported initial-admin/bootstrap procedure, then rotate/remove bootstrap access.`],['Create first Application',`kubectl apply -f application.yaml
+argocd app get demo-app`]];function instNext(){if(ii<isteps.length){instText.innerHTML='<b>'+(ii+1)+'. '+isteps[ii][0]+'</b><br>'+({'Standard multi-tenant':'Install UI/API, controllers and multi-cluster features.','Core only':'Controller-oriented install without the full UI/SSO/multi-cluster feature set.','High availability':'Use the HA installation assets and production-grade sizing.','Helm chart':'Manage installation values through the Argo Helm chart.'}[installType.value]);instCmd.textContent=isteps[ii][1];ii++;instProg.textContent=ii+' / 8'}}function instReset(){ii=0;instProg.textContent='0 / 8';instText.textContent='Start by checking prerequisites.';instCmd.textContent=isteps[0][1]}
+function makeApp(){appYaml.textContent=`apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: color-app
+  name: ${appName.value}
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://example.invalid/platform-config.git
     targetRevision: main
-    path: apps/color
+    path: ${appPath.value}
   destination:
     server: https://kubernetes.default.svc
-    namespace: color
+    namespace: ${appNs.value}
   syncPolicy:
-    automated:
-      selfHeal: true
     syncOptions:
-      - CreateNamespace=true</pre><div class="callout warn"><b>Application vs AppProject:</b> Application defines what to deploy and where. AppProject provides a logical grouping and can constrain allowed sources, destinations and resource kinds.</div></div></section>
-<section class="page" data-title="6 · Architecture"><div class="card"><h2>Request journey</h2><p>Select a journey:</p><button class="btn p" onclick="journey('render')">Render manifests</button><button class="btn g" onclick="journey('sync')">Sync app</button><button class="btn a" onclick="journey('login')">Login/UI</button><div id="journeyOut" class="step"></div><div class="diagram"><pre class="mermaid">flowchart LR
- USER[User / CLI] --> SERVER[argocd-server]
- GIT[(Git)] --> REPO[argocd-repo-server]
- REPO --> CTRL[argocd-application-controller]
- SERVER --> CTRL
- CTRL --> K8S[(Kubernetes API)]
- DEX[Dex / external IdP] --> SERVER
- CTRL --> REDIS[(Redis cache)]
- CTRL --> NOTIFY[notification-controller]
-</pre></div></div></section>
-<section class="page" data-title="7 · Patterns"><div class="card"><h2>Deployment patterns</h2><div class="grid"><div class="box"><h3>Mono application</h3><p>One Application points to one path/chart and one destination.</p></div><div class="box"><h3>App-of-Apps</h3><p>A parent Application points to manifests that define child Argo CD Applications.</p></div><div class="box"><h3>Multi-cluster</h3><p>Applications can target registered destination clusters. Keep project boundaries and credentials deliberate.</p></div></div><div class="diagram"><pre class="mermaid">flowchart TB
- ROOT[Parent Application] --> A[payments Application]
- ROOT --> B[orders Application]
- ROOT --> C[observability Application]
- A --> DEV[(dev cluster)]
- B --> STG[(staging cluster)]
- C --> PROD[(prod cluster)]
-</pre></div></div></section>
-<section class="page" data-title="8 · Health & Order"><div class="card"><h2>Sync is not the same as health</h2><div class="grid"><div class="box"><h3>Sync status</h3><p>Does live state match target state?</p><p><span class="status synced">Synced</span> / <span class="status out">OutOfSync</span></p></div><div class="box"><h3>Health</h3><p>What does Argo CD's health assessment say about the resources?</p><p><span class="status healthy">Healthy</span> · Progressing · Degraded · Missing · Suspended · Unknown</p></div></div></div><div class="card"><h2>Hooks let you model rollout phases</h2><div class="diagram"><pre class="mermaid">flowchart LR
- PRE[PreSync\nexample: migration Job] --> SYNC[Sync\nworkload resources] --> POST[PostSync\nexample: smoke test]
-</pre></div></div></section>
-<section class="page" data-title="9 · Secrets"><div class="card"><h2>GitOps does not make plaintext secrets safe</h2><p>The attached training material discusses Bitnami Sealed Secrets and the Argo CD Vault Plugin as approaches for secret workflows.</p><div class="grid"><div class="box"><h3>Sealed Secrets model</h3><p>Commit encrypted SealedSecret material. A controller in the cluster turns it into a Kubernetes Secret.</p></div><div class="box"><h3>Vault/plugin model</h3><p>Store secret values in Vault and use placeholders in Git. A plugin resolves values during manifest generation.</p></div></div><div class="callout warn"><b>Rule:</b> do not commit raw passwords, tokens, kubeconfigs, private keys, or unencrypted Kubernetes Secret values to a public repository.</div></div></section>
-<section class="page" data-title="10 · Troubleshoot"><div class="card"><h2>Choose the symptom</h2><div id="trBtns"></div><div id="trOut" class="step">Pick a symptom.</div></div><div class="card"><h2>Operator checklist</h2><pre>argocd app get &lt;app&gt;
-argocd app diff &lt;app&gt;
-argocd app sync &lt;app&gt;
-argocd app history &lt;app&gt;
-kubectl -n argocd get pods
-kubectl -n argocd logs deploy/argocd-repo-server
-kubectl -n argocd logs statefulset/argocd-application-controller</pre><p class="small">Exact workload kind/names can vary by installation; inspect the argocd namespace first.</p></div></section>
-<section class="page" data-title="11 · Quiz"><div class="card"><h2>Quick quiz</h2><div id="quiz" class="quiz"></div><h3>Score: <span id="score">0</span> / 8</h3></div><div class="card"><h2>Cheat sheet</h2><table class="compare"><tr><th>Term</th><th>Memory hook</th></tr><tr><td>Desired/target state</td><td>What Git declares</td></tr><tr><td>Live state</td><td>What Kubernetes currently has</td></tr><tr><td>Refresh</td><td>Recompare Git and live state</td></tr><tr><td>Sync</td><td>Move live resources toward target state</td></tr><tr><td>Prune</td><td>Delete resources removed from Git</td></tr><tr><td>Self-heal</td><td>Repair out-of-band live drift</td></tr><tr><td>Application</td><td>Source + destination + policy</td></tr><tr><td>AppProject</td><td>Boundary around applications</td></tr></table></div></section>
-</main>
-<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true,theme:'neutral',securityLevel:'strict'});</script>
-<script>
-const pages=[...document.querySelectorAll('.page')],tabs=document.getElementById('tabs');pages.forEach((p,i)=>{let b=document.createElement('button');b.textContent=p.dataset.title;b.className=i?'':'on';b.onclick=()=>{pages.forEach(x=>x.classList.remove('on'));[...tabs.children].forEach(x=>x.classList.remove('on'));p.classList.add('on');b.classList.add('on');scrollTo({top:0,behavior:'smooth'})};tabs.appendChild(b)});
-let git=3,live=3,sha=1;function paint(){let out=git===live;syncState.textContent=out?'Synced':'OutOfSync';syncState.className='status '+(out?'synced':'out');diff.textContent=out?'No diff.':`Git says ${git}; cluster has ${live}.`;liveRep.textContent=live}function commitGit(){git=+gitRep.value;sha++;gitSha.textContent='revision: demo'+sha;paint()}function manualScale(){live=5;paint()}function doSync(){live=git;paint()}
-const terms={Application:'A group of Kubernetes resources managed together from a declared source to a destination.',Project:'A logical grouping/boundary for Applications, useful for multi-team setups.',TargetState:'Desired state represented by files in Git.',LiveState:'Resources that currently exist in the Kubernetes cluster.',SyncStatus:'Whether live state matches target state.',Sync:'The operation that moves an application toward target state.',Refresh:'Compare the latest desired state with live state and calculate differences.',Health:'Argo CD assessment of whether application resources are operating correctly.'};for(let [k,v] of Object.entries(terms)){let d=document.createElement('div');d.className='box';d.innerHTML='<b>'+k+'</b>';d.onclick=()=>termOut.innerHTML='<b>'+k+':</b> '+v;termsEl=terms;document.getElementById('terms').appendChild(d)}
-let ri=0,rt=[['rGit','1. Observe Git','Argo CD obtains desired manifests from the configured source.'],['rK8s','2. Observe cluster','Argo CD reads the live objects in the target cluster.'],['rArgo','3. Diff','It calculates whether target and live states match.'],['rArgo','4. Act or report','Depending on sync policy and user action, it synchronizes or reports OutOfSync.'],['rK8s','5. Repeat','The controller loop keeps reconciling over time.']];function rr(){document.querySelectorAll('#recActors .actor').forEach(x=>x.classList.remove('hot'));let s=rt[ri];document.getElementById(s[0]).classList.add('hot');recText.innerHTML='<b>'+s[1]+'</b><br>'+s[2]}function rec(n){ri=Math.max(0,Math.min(rt.length-1,ri+n));rr()}function recAuto(){ri=0;rr();let z=setInterval(()=>{if(ri===rt.length-1)return clearInterval(z);ri++;rr()},1200)}rr();
-let p={img:1,gitSvc:1,liveSvc:1,rep:3};function policy(){polResult.textContent=auto.checked?'Automated sync enabled. Commit a Git change to test it.':'Manual sync mode. Argo CD observes differences but waits for a sync action.'}function newImage(){p.img++;if(auto.checked)imageLive.textContent='v'+p.img;polResult.textContent=auto.checked?'Git changed → automated sync updates the image.':'Git changed → application becomes OutOfSync until manually synced.'}function deleteSvcGit(){p.gitSvc=0;svcGit.textContent='(deleted)';if(auto.checked&&prune.checked){p.liveSvc=0;svcLive.textContent='deleted';polResult.textContent='Prune enabled → resource removed from Git is deleted from cluster.'}else polResult.textContent='Service removed from Git, but it remains live because prune is not active for this automated flow.'}function drift(){p.rep=7;polRep.textContent=7;if(auto.checked&&heal.checked){setTimeout(()=>{p.rep=3;polRep.textContent=3;polResult.textContent='Self-heal repaired the manual cluster drift back to Git.'},500)}else polResult.textContent='Manual live drift detected. Without automated self-heal, it remains drifted.'}
-function journey(x){journeyOut.innerHTML={render:'<b>Render:</b> application-controller asks repo-server to fetch/interpret the configured source and produce desired Kubernetes manifests.',sync:'<b>Sync:</b> application-controller compares desired manifests to live objects and applies the changes needed by the sync operation.',login:'<b>Access:</b> argocd-server exposes the API used by the UI/CLI; authentication may integrate with Dex or another configured identity provider.'}[x]}
-const trs={OutOfSync:'Start with <code>argocd app diff &lt;app&gt;</code>. Decide whether the difference is an expected Git change, manual drift, or a field that should be ignored.',Degraded:'Sync and health are separate. Inspect the unhealthy Kubernetes resource, events, rollout state, probes and application details.',RepoError:'Inspect repository credentials, network/DNS/TLS reachability and repo-server logs. If manifest generation fails, run the same Helm/Kustomize rendering locally.',PruneRisk:'For critical resources, consider explicit pruning safeguards such as prune confirmation rather than broadly enabling deletion.',ManualDrift:'If Git must be authoritative, avoid direct kubectl changes. With automated + selfHeal, Argo CD can reconcile eligible drift back to Git.'};for(let [k,v] of Object.entries(trs)){let b=document.createElement('button');b.className='btn';b.textContent=k;b.onclick=()=>trOut.innerHTML='<b>'+k+'</b><br>'+v;trBtns.appendChild(b)}
-const qs=[['What is the source of truth in a GitOps workflow?',['The CI worker','Git desired state','kubectl history'],1],['What does OutOfSync mean?',['Live differs from target','Pods are unhealthy','Git is offline'],0],['What does prune control?',['Deleting resources removed from Git','Restarting Pods','Repository cleanup'],0],['What does selfHeal address?',['Manual live drift','Image build failures','Git merge conflicts'],0],['Which component renders/fetches repository source material?',['repo-server','Dex','notification-controller'],0],['Can an app be Synced but unhealthy?',['Yes','No'],0],['Application source + destination + policy best describes?',['Argo CD Application','Kubernetes Node','ServiceAccount'],0],['Why is pull-style GitOps attractive?',['CI must have cluster-admin','A controller reconciles from Git instead of CI pushing directly','It removes Git'],1]];let score=0;qs.forEach((q,qi)=>{let d=document.createElement('div');d.innerHTML='<p><b>'+(qi+1)+'. '+q[0]+'</b></p>';q[1].forEach((o,oi)=>{let b=document.createElement('button');b.textContent=o;b.onclick=()=>{if(d.dataset.done)return;d.dataset.done=1;if(oi===q[2]){b.className='good';score++;document.getElementById('score').textContent=score}else{b.className='bad';[...d.querySelectorAll('button')][q[2]].className='good'}};d.appendChild(b)});quiz.appendChild(d)});
+      - CreateNamespace=true`}
+let gd=3,lv=3,rev=1;function rp(){let m=gd===lv;sStat.textContent=m?'Synced':'OutOfSync';sStat.className='status '+(m?'synced':'out');dText.textContent=m?'Desired and live match.':`Git wants ${gd}; cluster has ${lv}.`;lRep.textContent=lv}function commitDesired(){gd=+gRep.value;rev++;revision.textContent='revision: demo'+rev;rp()}function manualDrift(){lv=8;rp()}function syncNow(){lv=gd;rp()}
+function gitImage(){policyOut.textContent=auto.checked?'Automated sync applies the new desired image revision.':'Git changed: Argo CD reports OutOfSync and waits for manual sync.'}function removeService(){policyOut.textContent=auto.checked&&prune.checked?'Automated + prune: the removed Service can be deleted from the cluster.':'The Service remains until a pruning sync is authorized.'}function emptyGit(){policyOut.textContent=auto.checked&&prune.checked&&empty.checked?'allowEmpty permits pruning the application to zero target resources.':'Safety behavior prevents an automated empty application unless allowEmpty is enabled with pruning.'}function liveScale(){policyOut.textContent=auto.checked&&heal.checked?'Automated self-heal restores replicas from Git.':'Manual drift is detected; without automated self-heal it is not repaired automatically.'}function liveLabel(){policyOut.textContent=auto.checked&&heal.checked?'Self-heal attempts to reconcile the managed field; diff customization may change what is considered drift.':'Argo CD reports the live difference.'}
+const srcs={"Plain YAML/JSON":'A directory of Kubernetes manifests. Simple and transparent; duplication grows across environments.',Kustomize:'Bases plus overlays; native Kubernetes-style patching without templates.',Helm:'Templates plus values; useful for reusable packages and third-party charts. Debug rendered manifests, not just templates.',Jsonnet:'Programmable JSON generation for advanced composition.',Plugin:'A config management plugin executes a custom generation workflow. Treat plugins as highly trusted code.',"Multiple sources":'An Application can combine sources for supported use cases. Keep ownership and version pinning explicit.'};for(let [k,v] of Object.entries(srcs)){let d=document.createElement('div');d.className='box';d.innerHTML='<b>'+k+'</b>';d.onclick=()=>sourceOut.innerHTML='<b>'+k+'</b><br>'+v;sources.appendChild(d)}
+const comps={'argocd-server':'gRPC/REST API used by UI, CLI and integrations; handles application operations, authentication delegation and RBAC enforcement.','repo-server':'Caches/fetches repositories and generates manifests from URL, revision, path/chart and source-specific parameters.','application-controller':'Continuously compares live and target states, detects OutOfSync, performs sync actions and invokes lifecycle hooks.','applicationset-controller':'Generates and maintains Application resources from generators and templates.','Dex / IdP':'Authentication integration path; exact identity-provider design depends on deployment.','Redis':'Caches data used by components; treat availability and credentials according to the installation mode.','notifications-controller':'Evaluates triggers and sends configured notifications.'};for(let [k,v] of Object.entries(comps)){let d=document.createElement('div');d.className='box';d.innerHTML='<b>'+k+'</b>';d.onclick=()=>compOut.innerHTML='<b>'+k+'</b><br>'+v;components.appendChild(d)}function runPhase(){phaseOut.textContent={'PreSync':'Run prerequisite hooks before normal sync, such as a migration/backup job.','Sync wave -1':'Apply lower-wave resources first, often prerequisites such as CRDs.','Sync wave 0':'Apply default-wave resources.','Sync wave 1':'Apply resources that depend on earlier waves.','PostSync':'Run validation/smoke-test hooks after successful sync.','SyncFail':'Run failure-handling hooks if the sync operation fails.'}[phase.value]}
+function genApps(){appsOut.innerHTML='';envs.value.split(',').map(x=>x.trim()).filter(Boolean).forEach(e=>{let d=document.createElement('div');d.className='box';d.innerHTML='<b>'+e+'-application</b><br>generator: '+gen.value+'<br>destination: '+e+'<br>path: environments/'+e;appsOut.appendChild(d)})}
+const sec=['Pin source revisions and installation versions','Use SSO and least-privilege RBAC','Restrict AppProject sources/destinations/kinds','Protect repository and cluster credentials','Use trusted TLS and SSH known-host verification','Do not store plaintext secrets in Git','Require PR review and branch protection','Sign/scan images and prefer immutable digests','Use admission policy for runtime enforcement','Back up declarative config and document bootstrap recovery','Monitor sync failures, health and controller capacity','Protect destructive prune and root bootstrap apps'];sec.forEach((x,i)=>{let l=document.createElement('label');l.style.display='block';l.innerHTML=`<input class="sc" type="checkbox"> ${x}`;secList.appendChild(l)});function secScore(){let n=document.querySelectorAll('.sc:checked').length;secOut.innerHTML=`Implemented <b>${n}/${sec.length}</b>. ${n===sec.length?'Strong baseline. Validate it with failure and recovery tests.':'Unselected controls are concrete backlog items; prioritize credentials, RBAC, secrets and destructive-action safeguards.'}`}
+const trouble={OutOfSync:'Run app diff. Determine whether the difference is a Git change, manual drift, defaulted/mutated field, orphaned resource or an expected ignored field.',Degraded:'Sync can be correct while the workload is unhealthy. Inspect rollout status, probes, events, dependencies, PVCs, Services/Ingress and admission results.',Unknown:'Inspect resource customization/health evaluation and whether Argo CD can read the resource status.',RepoError:'Validate repository URL, credentials, TLS/SSH trust, network/DNS and repo-server logs. Reproduce rendering locally with identical inputs.',ComparisonError:'Inspect manifest generation errors, missing values/files, unsupported APIs, plugin failures and source revision/path.',SyncFailed:'Read the operation message, identify the first failing resource, then inspect Kubernetes events, RBAC and admission-policy responses.',PruneBlocked:'Check Prune=false, Prune=confirm, deletion approval, finalizers and propagation policy.',StuckProgressing:'Compare desired vs updated/available replicas, generation observation, hooks/jobs and rollout timeout conditions.',ApplicationSet:'Inspect generator input, template rendering and ApplicationSet controller events/logs. Remember generated Applications are controller-owned.'};for(let [k,v] of Object.entries(trouble)){let b=document.createElement('button');b.className='btn';b.textContent=k;b.onclick=()=>trOut.innerHTML='<b>'+k+'</b><br>'+v;trBtns.appendChild(b)}function roll(x){rollOut.innerHTML=x==='git'?'<b>Git revert:</b> create/review a commit that restores the known-good config; Argo CD reconciles it. Git and cluster remain aligned.':'<b>Argo history rollback:</b> live state returns to an earlier revision. Update/revert Git too, otherwise the tracked desired state may move the cluster forward again.'}
+const Q=[['GitOps desired state normally lives where?',['CI logs','Git','etcd backup'],1],['OutOfSync means?',['Target and live differ','Pods are always down','Git is corrupt'],0],['Healthy and Synced are identical?',['Yes','No'],1],['prune controls?',['Deletion of removed resources','Pod restarts','Git garbage collection'],0],['selfHeal primarily addresses?',['Live drift','Image building','Merge conflicts'],0],['repo-server is responsible for?',['Manifest generation','Kubelet scheduling','CNI routing'],0],['AppProject primarily provides?',['A policy/tenancy boundary','Container runtime','DNS'],0],['ApplicationSet creates?',['Application resources','Nodes','Helm repositories'],0],['Best GitOps rollback?',['Delete random resources','Revert desired state in Git','Clear etcd'],1],['Base64 Kubernetes Secret is encrypted?',['Yes','No'],1],['CI needs cluster-admin in pull GitOps?',['Normally no','Always'],0],['A Synced app can be Degraded?',['Yes','No'],0],['Sync waves control?',['Resource order','Git branch protection','Image scanning'],0],['For production revisions, prefer?',['Immutable/pinned revisions where appropriate','Always HEAD without review'],0],['Generated Application manual edits are durable?',['Always','Not necessarily; ApplicationSet may overwrite them'],1],['Which object restricts which repos and namespaces an Application may use?',['Application','ApplicationSet','AppProject'],2],['Which object generates many Applications from a template?',['AppProject','ApplicationSet','ConfigMap'],1],['Does an ApplicationSet deploy workload resources directly?',['Yes','No, it creates Application objects'],1],['Which project allows any repo, destination and resource kind by default?',['default','team-a','argocd-system'],0],['Which setting stops tenants from creating cluster-scoped resources?',['An empty clusterResourceWhitelist in the AppProject','selfHeal','Prune=false'],0]];let score=0;Q.forEach((q,n)=>{let d=document.createElement('div');d.innerHTML='<p><b>'+(n+1)+'. '+q[0]+'</b></p>';q[1].forEach((o,i)=>{let b=document.createElement('button');b.textContent=o;b.onclick=()=>{if(d.dataset.done)return;d.dataset.done='1';if(i===q[2]){b.className='good';score++;$('score').textContent=score}else{b.className='bad';d.querySelectorAll('button')[q[2]].className='good'}};d.appendChild(b)});quiz.appendChild(d)});
+
+function projTry(){
+  const p=pjProj.value, repo=pjRepo.value, ns=pjNs.value, kind=pjKind.value;
+  const clusterKinds=['ClusterRole','ClusterRoleBinding'];
+  const checks=[];
+  if(p==='default'){
+    checks.push(['Source repo allowed',true,'default allows any repository']);
+    checks.push(['Destination allowed',true,'default allows any cluster/namespace']);
+    checks.push(['Resource kind allowed',true,'default allows any kind']);
+  } else {
+    checks.push(['Source repo allowed',repo==='team-a',repo==='team-a'?'matches https://example.invalid/team-a/*':'repo is not listed in sourceRepos']);
+    checks.push(['Destination allowed',ns.startsWith('team-a-'),ns.startsWith('team-a-')?'namespace matches team-a-*':'namespace does not match team-a-*']);
+    const isCluster=clusterKinds.includes(kind);
+    checks.push(['Resource kind allowed',!isCluster&&kind!=='ResourceQuota',isCluster?kind+' is cluster-scoped and clusterResourceWhitelist is empty':kind==='ResourceQuota'?'ResourceQuota is in namespaceResourceBlacklist':kind+' is allowed']);
+  }
+  const ok=checks.every(c=>c[1]);
+  pjOut.innerHTML=checks.map(c=>(c[1]?'✅ ':'❌ ')+'<b>'+c[0]+'</b>: '+c[2]).join('<br>')+'<br><br>'+(ok?'<b>Result: sync allowed.</b>'+(p==='default'?' This is why the default project is risky for shared clusters.':''):'<b>Result: denied by the AppProject.</b> The Application cannot deploy this.');
+}
+function asRender(){
+  const g=asGen.value, names=asNames.value.split(',').map(x=>x.trim()).filter(Boolean), proj=asProj.value||'default';
+  let gen, key, nameExpr, path, server, note;
+  if(g==='list'){
+    gen='  generators:\n    - list:\n        elements:\n'+names.map(n=>'          - env: '+n+'\n            cluster: https://'+n+'.example.invalid').join('\n');
+    nameExpr='{{env}}-demo'; path='environments/{{env}}'; server='{{cluster}}';
+    note='List generator: you supply the parameters (env, cluster) yourself.';
+  } else if(g==='git'){
+    gen='  generators:\n    - git:\n        repoURL: https://example.invalid/platform-config.git\n        revision: main\n        directories:\n          - path: apps/*';
+    nameExpr='{{path.basename}}-demo'; path='{{path}}'; server='https://kubernetes.default.svc';
+    note='Git directory generator: one Application per folder under apps/. Names below stand for those folders.';
+  } else {
+    gen='  generators:\n    - clusters: {}';
+    nameExpr='{{name}}-demo'; path='clusters/{{name}}'; server='{{server}}';
+    note='Cluster generator: one Application per cluster registered in Argo CD. Names below stand for cluster names.';
+  }
+  asNote.textContent=note;
+  asYaml.textContent='apiVersion: argoproj.io/v1alpha1\nkind: ApplicationSet\nmetadata:\n  name: demo-set\n  namespace: argocd\nspec:\n'+gen+'\n  template:\n    metadata:\n      name: \''+nameExpr+'\'\n    spec:\n      project: '+proj+'\n      source:\n        repoURL: https://example.invalid/platform-config.git\n        targetRevision: main\n        path: '+path+'\n      destination:\n        server: \''+server+'\'\n        namespace: demo\n      syncPolicy:\n        automated:\n          selfHeal: true';
+  asApps.innerHTML='';
+  const render=(n)=>{
+    if(g==='list') return {name:n+'-demo',path:'environments/'+n,server:'https://'+n+'.example.invalid'};
+    if(g==='git') return {name:n+'-demo',path:'apps/'+n,server:'https://kubernetes.default.svc'};
+    return {name:n+'-demo',path:'clusters/'+n,server:'https://'+n+'.example.invalid'};
+  };
+  names.forEach(n=>{const r=render(n);const d=document.createElement('div');d.className='box';d.innerHTML='<b>Application: '+r.name+'</b><br>project: '+proj+'<br>path: '+r.path+'<br>destination: '+r.server;asApps.appendChild(d)});
+  if(names.length){const r=render(names[0]);asOne.textContent='apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: '+r.name+'\n  namespace: argocd\nspec:\n  project: '+proj+'\n  source:\n    repoURL: https://example.invalid/platform-config.git\n    targetRevision: main\n    path: '+r.path+'\n  destination:\n    server: '+r.server+'\n    namespace: demo\n  syncPolicy:\n    automated:\n      selfHeal: true';}
+}
+asRender();
+const SC=[
+ ['Deploy one microservice from one path into one namespace',0],
+ ['Deploy the same app to every cluster as new clusters are registered',1],
+ ['Stop team B from deploying into team A\'s namespaces',2],
+ ['Create one Application automatically for each folder under apps/',1],
+ ['Block tenants from creating ClusterRoles through Argo CD',2],
+ ['Enable automated sync and selfHeal for one specific app',0],
+ ['Let a group sync applications but not delete them',2]
+];
+let scnDone=0;
+SC.forEach((x,i)=>{
+  const d=document.createElement('div');d.className='box';d.style.margin='8px 0';
+  d.innerHTML='<b>'+(i+1)+'. '+x[0]+'</b><br>';
+  ['Application','ApplicationSet','AppProject'].forEach((n,j)=>{
+    const b=document.createElement('button');b.className='btn';b.textContent=n;
+    b.onclick=()=>{
+      if(d.dataset.done)return;d.dataset.done='1';
+      if(j===x[1]){b.className='btn g';scnDone++;scnScore.textContent=scnDone;}
+      else{b.className='btn r';d.querySelectorAll('button')[x[1]].className='btn g';}
+    };
+    d.appendChild(b);
+  });
+  scn.appendChild(d);
+});
 </script></body></html>

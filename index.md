@@ -11,6 +11,7 @@ title: Home
 | [🗄️ etcd Backup & Restore](etcd-backup-restore.html) | etcdctl vs etcdutl, mTLS certs, snapshot backup, restore for kubeadm and systemd |
 | [🐙 GitOps & Argo CD](gitops-argocd.html) | GitOps fundamentals, reconciliation, Argo CD architecture, Applications, sync policies, prune, self-heal, health, secrets and troubleshooting |
 | [🐍 Python: Zero to Mastery](python-mastery.html) | 150 topics from foundations to expert internals with runnable code, visualisations, a capstone and a quiz |
+| [🔒 Security Context](security-context.html) | Users, capabilities, seccomp, user namespaces, Pod Security and policy, with labs and a quiz |
 
 
 ---

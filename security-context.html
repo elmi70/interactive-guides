@@ -1,0 +1,1274 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>The Container Building – Security Context Explained</title>
+<style>
+:root{
+  --bg:#f3f7f6;--card:#fff;--ink:#1b2a33;--muted:#55676f;--line:#d6e0dd;
+  --teal:#0f8f7e;--teal-bg:#d9f3ee;--blue:#2563eb;--blue-bg:#e4edff;--amber:#b45309;--amber-bg:#fdeacb;
+  --red:#b42318;--red-bg:#fde4e1;--green:#067647;--green-bg:#dcf5e6;--purple:#6d28d9;--purple-bg:#ede4ff;
+  --code:#12212a;--codeink:#dbe8e4;--focus:#1f6feb;--radius:16px;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e171b;--card:#16242b;--ink:#e6eeec;--muted:#9fb3ba;--line:#2b4048;
+  --teal:#5fd3bd;--teal-bg:#123a34;--blue:#8db4ff;--blue-bg:#18284a;--amber:#f2aa57;--amber-bg:#3d2b12;
+  --red:#f59a92;--red-bg:#40191a;--green:#6fe0a0;--green-bg:#123a26;--purple:#c0a4ff;--purple-bg:#2a1f4d;
+  --code:#0a1317;--codeink:#dbe8e4;--focus:#7ab2ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans)}
+header.hero{background:linear-gradient(130deg,#0b6e63,#0f8f7e 40%,#2563eb);color:#fff;text-align:center;padding:34px 16px 78px}
+header.hero h1{margin:0;font-size:clamp(28px,5.5vw,52px);letter-spacing:-.5px}
+header.hero p{max-width:780px;margin:8px auto 0;font-size:18px;opacity:.95}
+nav#tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:1180px;margin:-46px auto 10px;padding:8px 12px}
+nav#tabs button{border:0;border-radius:999px;background:var(--card);color:var(--ink);padding:8px 14px;font:700 13.5px var(--sans);cursor:pointer;box-shadow:0 3px 12px #0003}
+nav#tabs button[aria-selected=true]{background:#ffd54a;color:#1b2a33}
+main{max-width:1040px;margin:0 auto;padding:0 16px 70px}
+.page{display:none}.page.on{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:16px 0;box-shadow:0 4px 18px #0000000c}
+h2{margin:0 0 6px;font-size:26px}h3{margin:20px 0 8px;font-size:18px}
+.lead{color:var(--muted);font-size:17px;margin:0 0 12px}
+p{margin:0 0 12px;max-width:72ch}
+code{font-family:var(--mono);font-size:.9em;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+pre{margin:10px 0;background:var(--code);color:var(--codeink);border-radius:10px;padding:12px 14px;padding-right:70px;overflow:auto;font:13px/1.55 var(--mono);position:relative;white-space:pre}
+pre code{background:none;border:0;padding:0;font-size:inherit;color:inherit}
+.copy{position:absolute;top:7px;right:7px;font:12px var(--sans);padding:3px 9px;border-radius:7px;border:1px solid #47626d;background:transparent;color:var(--codeink);cursor:pointer}
+.grownup,.analogy,.warn,.good,.bad{border-radius:12px;padding:11px 14px;margin:12px 0;max-width:none}
+.grownup{background:var(--blue-bg);border-left:5px solid var(--blue)}
+.analogy{background:var(--amber-bg);border-left:5px solid var(--amber)}
+.warn{background:var(--amber-bg);border-left:5px solid var(--amber)}
+.good{background:var(--green-bg);border-left:5px solid var(--green)}
+.bad{background:var(--red-bg);border-left:5px solid var(--red)}
+.grownup p,.analogy p,.warn p,.good p,.bad p{margin:0 0 6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.two{display:grid;grid-template-columns:1fr 1.2fr;gap:18px}@media(max-width:800px){.two{grid-template-columns:1fr}}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 13px;border-radius:999px;font:700 13.5px var(--sans);cursor:pointer;margin:3px 4px 3px 0}
+.btn:hover{border-color:var(--ink)}.btn.p{background:var(--teal);border-color:var(--teal);color:#fff}.btn.k{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}.btn.sel{outline:3px solid var(--blue)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.row{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;margin:8px 0}
+fieldset{border:0;padding:0;margin:0 0 12px;min-width:0}legend{font-weight:700;padding:0;margin-bottom:4px}
+label.opt{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:8px;cursor:pointer}label.opt:hover{background:var(--bg)}
+label.opt small{display:block;color:var(--muted);font-size:13px;line-height:1.35}
+input[type=radio],input[type=checkbox]{margin-top:5px;accent-color:var(--teal)}
+select,input[type=text],textarea{font:inherit;padding:6px 9px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 12px;font-size:14px}.stat b{font-size:17px}
+.badge{display:inline-block;font:700 12px var(--sans);padding:2px 9px;border-radius:999px;white-space:nowrap}
+.b-ok,.b-low{background:var(--green-bg);color:var(--green)}.b-no,.b-high{background:var(--red-bg);color:var(--red)}.b-med{background:var(--amber-bg);color:var(--amber)}.b-info{background:var(--blue-bg);color:var(--blue)}
+.lanyard{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px;margin:10px 0}
+.cap{text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:7px 10px;display:flex;flex-direction:column;gap:1px;font:inherit}
+button.cap{cursor:pointer}.cap b{font:700 12.5px var(--mono);overflow-wrap:anywhere}.cap span{font-size:12px;color:var(--muted)}
+.cap.on{background:var(--teal-bg);border-color:var(--teal)}.cap.on span{color:var(--teal)}
+.cap.added{background:var(--amber-bg);border-color:var(--amber)}.cap.added span{color:var(--amber)}
+.cap.off,.cap.dropped{background:repeating-linear-gradient(135deg,transparent 0 6px,#8aa0a02a 6px 7px);color:var(--muted)}
+.cap.dropped b{text-decoration:line-through}.cap.sel{box-shadow:0 0 0 3px var(--blue)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:10px 0}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--bg)}
+.tw{overflow-x:auto}
+.actors{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:12px 0}
+.actor{text-align:center;border:3px solid var(--line);border-radius:14px;padding:10px 6px;background:var(--bg);transition:.2s}
+.actor .em{font-size:30px;display:block}.actor.lit{border-color:#f59e0b;background:var(--amber-bg);box-shadow:0 0 0 4px #f59e0b33}
+.step{background:var(--purple-bg);border-left:5px solid var(--purple);border-radius:10px;padding:11px 14px;margin:10px 0;min-height:70px}
+.dots{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.dot{min-width:32px;height:32px;border-radius:16px;background:var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;border:0;color:var(--ink);font:700 14px var(--sans)}
+.dot.on{background:#f59e0b;color:#111}.dot.done{background:var(--green);color:#fff}
+.layer{display:block;width:100%;text-align:left;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:9px 12px;margin:6px 0;cursor:pointer;font:inherit}
+.layer.sel{border-color:var(--blue);background:var(--blue-bg)}.layer b{margin-right:6px}
+.acts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.acts li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:baseline;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.acts .why{grid-column:2;font-size:13px;color:var(--muted)}.acts code{font-size:12px}
+.mono{font-family:var(--mono);font-size:13px}
+.q{margin:0 0 16px}.q legend{font-weight:700}.fb{font-size:14px;margin:4px 8px}
+.chk label{display:flex;gap:8px;padding:5px 8px;border-radius:8px;background:var(--bg);margin:4px 0;cursor:pointer}
+.err{color:var(--red);font-size:14px;min-height:1.2em}
+.muted{color:var(--muted)}.small{font-size:14px}
+.sym{display:block;width:100%;text-align:left;margin:5px 0}
+.pbar{height:12px;border-radius:8px;background:var(--line);overflow:hidden;margin:6px 0}.pbar i{display:block;height:100%;background:var(--green);transition:width .3s}
+.meter{display:flex;gap:4px;margin:8px 0}.meter i{flex:1;height:14px;border-radius:5px;background:var(--line)}
+.meter i.on1{background:#22a06b}.meter i.on2{background:#f59e0b}.meter i.on3{background:#dc2626}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:10px 16px 40px;max-width:780px;margin:auto}
+
+.two>*,.grid>*,.actors>*{min-width:0}
+pre{max-width:100%}
+.stat b.mono{overflow-wrap:anywhere}
+.box{border:2px solid var(--line);border-radius:12px;padding:6px 14px 8px}
+img,svg{max-width:100%}
+li,.step,.good,.bad,.warn,.grownup,.analogy,td,.mono,.why{overflow-wrap:anywhere}
+
+</style></head>
+<body>
+<header class="hero"><h1>🏢 The Container Building</h1><p>Security context explained with a giant office building, badges and keycards. From "who is running my container?" to user namespaces and Pod Security. Click, play and explore!</p></header>
+<nav id="tabs" role="tablist" aria-label="Chapters"></nav>
+<main>
+<!-- 1 -->
+<section class="page on" id="p1" role="tabpanel">
+<div class="card"><h2>🏢 One building, many floors</h2>
+<p class="lead">Picture one huge office building. Lots of teams rent a floor each, but they all share the same building. The building's rules decide who may work on a floor and what each person may do.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> The <b>node's Linux kernel</b> is the building. Each <b>container</b> is one team's floor. A <b>pod</b> is a team that may use several floors together. Everyone shares the same building, so the building's rules (the security context) matter a lot.</p></div>
+<div class="grownup"><p><b>🧓 Grown-up term:</b> a container is an ordinary Linux process with an isolated view of files, network and processes. It shares the host kernel. In Kubernetes, <code>securityContext</code> is the block that sets the process's user and groups, capabilities, seccomp and AppArmor/SELinux profiles, filesystem rules and more. The Kubernetes docs define it as <i>"privilege and access control settings for a Pod or Container"</i>.</p></div></div>
+
+<div class="card"><h2>🧅 The layers of protection</h2>
+<p class="lead">Security is not one switch. It is layers, like an onion. Click each layer to find out what it does.</p>
+<div class="two"><div id="w-layers"></div><div id="w-layer-detail" class="step" aria-live="polite"></div></div></div>
+
+<div class="card"><h2>🚶 A pod's journey to start</h2>
+<p class="lead">Question: "Start my web pod with this securityContext!" Step through the journey.</p>
+<div class="actors" id="j-actors"></div>
+<div class="dots" id="j-dots"></div>
+<div class="step" id="j-text" aria-live="polite"></div>
+<div><button class="btn" id="j-prev" type="button">◀ Back</button><button class="btn p" id="j-next" type="button">Next ▶</button><button class="btn k" id="j-play" type="button">▶ Play all</button></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> steps 2 and 3 are API admission (Pod Security Admission and policy engines). Step 5 is where the kubelet refuses to start a container that breaks <code>runAsNonRoot</code>. Step 6 is where the container runtime applies the settings (user, capabilities, seccomp, AppArmor/SELinux, namespaces). Step 7 is the kernel enforcing them on every system call.</p></div></div>
+</section>
+
+<!-- 2 -->
+<section class="page" id="p2" role="tabpanel">
+<div class="card"><h2>🪪 Badges: who is running the process?</h2>
+<p class="lead">Every worker wears a badge with a number on it. The building only reads numbers, never names.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> The <b>UID</b> is the number on the badge. <b>UID 0</b> is the building manager (<b>root</b>). The name tag ("appuser") is just a label the front desk looks up in a list (<code>/etc/passwd</code>). The <b>GID</b> is the number on the team sticker. The manager can open every door without asking.</p></div>
+<p>Pick a user and see how Linux file permissions treat each file.</p>
+<fieldset><legend>Run as</legend><div id="w-users"></div></fieldset>
+<div class="tw"><table aria-live="polite"><thead><tr><th>File</th><th>Read</th><th>Write</th><th>Why</th></tr></thead><tbody id="w-users-out"></tbody></table></div>
+<p class="mono muted" id="w-users-id"></p>
+<div class="stats"><div class="stat">Files readable: <b id="u-r">0</b>/3</div><div class="stat">Files writable: <b id="u-w">0</b>/3</div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> the kernel only sees numeric UIDs and GIDs. Names come from <code>/etc/passwd</code> and <code>/etc/group</code>. Root skips normal file-permission checks. That skip is a separate power called <code>CAP_DAC_OVERRIDE</code> (you will meet it in tab 4). By default, <b>root inside a container is also UID 0 on the host</b>. If an attacker breaks out, they arrive as root. Running as a non-root user, or using a user namespace (tab 10), removes most of that risk.</p>
+<pre class="cp"><code>$ id
+uid=0(root) gid=0(root) groups=0(root)</code></pre></div></div>
+</section>
+
+<!-- 3 -->
+<section class="page" id="p3" role="tabpanel">
+<div class="card"><h2>🎫 Choosing a badge: Dockerfile and docker run</h2>
+<p class="lead">Two places decide who the container runs as, and one of them wins.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> <code>USER</code> in the Dockerfile is the badge printed in the employee's contract. <code>--user</code> is the manager at the door on day one saying "wear this badge instead". The manager's word wins.</p></div>
+<div class="two"><div><fieldset><legend>Dockerfile</legend><div id="w-df"></div></fieldset><fieldset><legend>docker run option</legend><div id="w-run"></div></fieldset></div>
+<div><pre class="cp"><code id="w-df-out"></code></pre><pre class="cp"><code id="w-cmd-out"></code></pre><pre><code id="w-id-out"></code></pre><div class="good" id="w-df-banner" role="status"></div><p class="small muted" id="w-df-note"></p></div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> if the image has no <code>USER</code> line, the default is root. A numeric <code>USER 1000</code> works without an account, but the <b>group falls back to root (gid 0)</b>, so write <code>USER 1000:1000</code> to set both. Create the user first, copy files with <code>--chown</code>, then switch with <code>USER</code>.</p>
+<pre class="cp"><code>FROM debian:12-slim
+RUN useradd --create-home --uid 1000 appuser
+WORKDIR /app
+COPY --chown=appuser:appuser . /app
+USER 1000:1000
+CMD ["./server"]</code></pre></div></div>
+
+<div class="card"><h2>🛂 Will Kubernetes let this badge in? (runAsNonRoot)</h2>
+<p class="lead"><code>runAsNonRoot: true</code> is the lobby guard who refuses to let the manager's badge in. But the guard can only check <b>numbers</b>.</p>
+<div class="row"><label>Image says <select id="n-img"><option value="none">no USER line</option><option value="name">USER appuser (a name)</option><option value="num">USER 1000 (a number)</option></select></label>
+<label>Pod says <select id="n-uid"><option value="">runAsUser not set</option><option value="1000">runAsUser: 1000</option><option value="0">runAsUser: 0</option></select></label>
+<label><input type="checkbox" id="n-nr" checked> runAsNonRoot: true</label></div>
+<div class="grid"><pre class="cp"><code id="n-yaml"></code></pre><div><div class="good" id="n-out" role="status"></div><p class="small muted" id="n-why"></p></div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> the kubelet checks <code>runAsNonRoot</code> before it starts the container. If the user is a <i>name</i> from the image (<code>USER appuser</code>), it cannot prove the number is not 0, so it refuses with <code>CreateContainerConfigError</code>. <b>Prefer numeric users</b> (<code>USER 1000</code>) or set <code>runAsUser</code> in the pod.</p></div></div>
+</section>
+
+<!-- 4 -->
+<section class="page" id="p4" role="tabpanel">
+<div class="card"><h2>🔑 Keycards: splitting root into pieces</h2>
+<p class="lead">Root used to mean "can do everything". Linux now splits that power into separate keycards.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> The old model was one master key that opens every door. Capabilities replace it with a <b>lanyard of separate keycards</b>: one opens the loading dock, one the server room, one the electrical cabinet. The container runtime gives root a lanyard with <b>14 safe cards</b> and keeps the dangerous ones back.</p></div>
+<div class="row"><span class="muted">Show:</span><button class="btn sel" data-capf="all" type="button">All 41</button><button class="btn" data-capf="def" type="button">Default 14</button><button class="btn" data-capf="nodef" type="button">Not default</button><button class="btn" data-capf="high" type="button">High risk</button></div>
+<div class="lanyard" id="w-lan3" role="group" aria-label="Capabilities"></div>
+<div class="step" id="w-cap-detail" aria-live="polite"></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> the Linux capability list has 41 entries on a recent kernel (<code>man 7 capabilities</code>). The default set is decided by the container runtime. Docker and containerd grant the same 14. Other runtimes, such as CRI-O, can use a different list, so check the real value with <code>grep Cap /proc/1/status</code>. The risk labels here are a rough teaching guide, not an official score.</p></div></div>
+
+<div class="card"><h2>🧮 Decode a capability number</h2>
+<p class="lead">Inside a container, <code>grep Cap /proc/1/status</code> prints hex numbers. Each bit is one keycard. Paste one to decode it.</p>
+<div class="row"><label>Hex value <input type="text" id="w-hex" value="00000000a80425fb" size="20" spellcheck="false" aria-describedby="w-hex-err"></label>
+<button class="btn" data-hex="00000000a80425fb" type="button">Docker default (root)</button><button class="btn" data-hex="0000000000000000" type="button">Non-root CapEff</button><button class="btn" data-hex="0000000000000400" type="button">Only NET_BIND_SERVICE</button><button class="btn" data-hex="000001ffffffffff" type="button">Privileged (all)</button></div>
+<p class="err" id="w-hex-err" role="alert"></p>
+<div class="stats"><div class="stat">Keycards: <b id="w-hex-n">0</b>/41</div></div><div id="w-hex-out" aria-live="polite"></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> a process has five capability sets. <b>Bounding</b> (<code>CapBnd</code>) is the ceiling. <b>Permitted</b> (<code>CapPrm</code>) is what it may use. <b>Effective</b> (<code>CapEff</code>) is what is switched on right now and is what the kernel checks. <b>Inheritable</b> (<code>CapInh</code>) and <b>ambient</b> (<code>CapAmb</code>) control what survives <code>execve</code>. A root process gets effective = permitted. A non-root process has its effective set <b>cleared at start</b> unless the program file has file capabilities. That is why <code>CapEff: 0000000000000000</code> in a non-root container is normal, even if the pod "added" a capability.</p>
+<pre class="cp"><code>kubectl exec web-pod -- grep Cap /proc/1/status
+capsh --decode=00000000a80425fb</code></pre></div></div>
+
+<div class="card"><h2>🚪 The port 80 problem</h2>
+<p>Listening on a port below 1024 needs <code>NET_BIND_SERVICE</code>. A non-root web server therefore cannot listen on port 80, and <b>adding the capability to a non-root container usually changes nothing</b> (see above). Setting file capabilities with <code>setcap</code> does not rescue you either when <code>allowPrivilegeEscalation: false</code> is set, because <code>no_new_privs</code> stops an <code>execve</code> from gaining privileges (tab 7).</p>
+<div class="grid"><div class="good"><b>✅ Fix 1: use port 8080</b><p>Let the Service map port 80 to the container's 8080.</p></div><div class="good"><b>✅ Fix 2: pod sysctl</b><p><code>net.ipv4.ip_unprivileged_port_start: 0</code> in <code>spec.securityContext.sysctls</code> (a safe sysctl).</p></div></div></div>
+</section>
+
+<!-- 5 -->
+<section class="page" id="p5" role="tabpanel">
+<div class="card"><h2>🐳 Docker: --cap-drop, --cap-add and --privileged</h2>
+<p class="lead">Three flags change the lanyard.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> <code>--cap-drop</code> is the guard collecting a card back at the door. <code>--cap-add</code> hands out one extra card. <code>--privileged</code> is the master key <b>plus</b> removing the walls between your floor and the rest of the building.</p></div>
+<fieldset><legend>Command</legend><div id="w-pre4"></div></fieldset>
+<pre class="cp"><code id="w-cmd4"></code></pre>
+<div class="stats"><div class="stat">Keycards held: <b id="w-n4">0</b>/41</div><div class="stat">CapEff (root): <b class="mono" id="w-hex4"></b></div></div>
+<div class="lanyard" id="w-lan4" role="group" aria-label="Resulting capabilities"></div>
+<p class="small muted" id="w-note4" aria-live="polite"></p>
+<p class="small muted">Teal: granted by default. Amber: added. Hatched and struck through: dropped. Hatched: not granted.</p>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> Docker accepts names with or without the <code>CAP_</code> prefix. <code>--privileged</code> gives every capability, access to host devices and relaxes the AppArmor/SELinux and seccomp confinement. Related Docker flags are in the table below.</p></div>
+<div class="tw"><table><thead><tr><th>Goal</th><th>docker run</th><th>Kubernetes (container securityContext)</th></tr></thead><tbody>
+<tr><td>Run as a user</td><td><code>--user 1000:1000</code></td><td><code>runAsUser: 1000</code>, <code>runAsGroup: 1000</code></td></tr>
+<tr><td>Drop everything</td><td><code>--cap-drop ALL</code></td><td><code>capabilities.drop: ["ALL"]</code></td></tr>
+<tr><td>Add one back</td><td><code>--cap-add NET_BIND_SERVICE</code></td><td><code>capabilities.add: ["NET_BIND_SERVICE"]</code></td></tr>
+<tr><td>No setuid gains</td><td><code>--security-opt no-new-privileges</code></td><td><code>allowPrivilegeEscalation: false</code></td></tr>
+<tr><td>Read-only filesystem</td><td><code>--read-only --tmpfs /tmp</code></td><td><code>readOnlyRootFilesystem: true</code> + an <code>emptyDir</code></td></tr>
+<tr><td>Seccomp profile</td><td><code>--security-opt seccomp=profile.json</code></td><td><code>seccompProfile.type: RuntimeDefault</code></td></tr>
+<tr><td>Everything allowed</td><td><code>--privileged</code></td><td><code>privileged: true</code></td></tr>
+<tr><td>Share host namespaces</td><td><code>--pid host</code>, <code>--network host</code></td><td><code>hostPID: true</code>, <code>hostNetwork: true</code> (pod spec)</td></tr></tbody></table></div></div>
+</section>
+
+<!-- 6 -->
+<section class="page" id="p6" role="tabpanel">
+<div class="card"><h2>📝 The rule form: securityContext in Kubernetes</h2>
+<p class="lead">Kubernetes writes the badge request on a form for the building's security desk.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> The <b>pod-level</b> section is the default for the whole team. The <b>container-level</b> section is a note about one person that overrides the team default.</p></div>
+<div class="row"><span class="muted">Show fields at:</span><button class="btn sel" data-ff="all" type="button">All</button><button class="btn" data-ff="pod" type="button">Pod level</button><button class="btn" data-ff="ctr" type="button">Container level</button><button class="btn" data-ff="both" type="button">Both levels</button></div>
+<div class="two"><div id="w-fields"></div><div class="step" id="w-field-detail" aria-live="polite"></div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> <code>spec.securityContext</code> is a <i>PodSecurityContext</i>. <code>spec.containers[].securityContext</code> is a <i>SecurityContext</i>. Container wins when both set the same field. Init and ephemeral containers have their own <code>securityContext</code> too. Host namespace switches (<code>hostNetwork</code>, <code>hostPID</code>, <code>hostIPC</code>, <code>hostUsers</code>) are plain <b>pod spec</b> fields, not part of <code>securityContext</code>. Run <code>kubectl explain pod.spec.securityContext</code> for your version.</p></div></div>
+
+<div class="card"><h2>🥇 Try it: which UID wins?</h2>
+<div class="row"><label>Image <select id="p-img"><option value="0">no USER line (root)</option><option value="1000">USER 1000</option></select></label>
+<label>Pod level <select id="p-pod"><option value="">not set</option><option value="2000">runAsUser: 2000</option></select></label>
+<label>Container level <select id="p-ctr"><option value="">not set</option><option value="3000">runAsUser: 3000</option></select></label></div>
+<div class="two"><pre class="cp"><code id="prec-yaml"></code></pre><div><div class="good" id="prec-out" role="status"></div><p class="small muted">Order: container, then pod, then the image. Check it with <code>kubectl exec web-pod -- id</code>.</p></div></div></div>
+
+<div class="card"><h2>📋 A complete example</h2>
+<pre class="cp"><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: web-pod
+spec:
+  securityContext:              # pod level: defaults for every container
+    runAsUser: 1000
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep", "3600"]
+    securityContext:            # container level: wins over the pod level
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+        add: ["NET_BIND_SERVICE"]</code></pre>
+<p class="small muted">In Kubernetes, write capability names without the <code>CAP_</code> prefix: <code>NET_ADMIN</code>, not <code>CAP_NET_ADMIN</code>.</p></div>
+</section>
+
+<!-- 7 -->
+<section class="page" id="p7" role="tabpanel">
+<div class="card"><h2>🚪 The revolving door (privilege escalation)</h2>
+<p class="lead">Some programs are special: when anyone runs them they briefly wear the manager's badge. That is how <code>ping</code>, <code>su</code> and <code>sudo</code> work.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> A <b>setuid</b> program is a revolving door that hands a visitor the manager's badge for a minute. <code>allowPrivilegeEscalation: false</code> puts a sign on the door: <i>"no badge upgrades in this building"</i>.</p></div>
+<div class="row"><label>Process runs as <select id="e-user"><option value="1000">appuser (UID 1000)</option><option value="0">root (UID 0)</option></select></label>
+<label>allowPrivilegeEscalation <select id="e-esc"><option value="true">true (the default)</option><option value="false">false</option></select></label></div>
+<div class="step" id="e-out" aria-live="polite"></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> <code>allowPrivilegeEscalation</code> directly controls the kernel's <code>no_new_privs</code> flag (inverted). <b>If you do not set it, it defaults to true.</b> With <code>no_new_privs</code>, an <code>execve</code> cannot gain privileges through setuid/setgid bits or file capabilities. It cannot be combined with <code>privileged: true</code> or <code>CAP_SYS_ADMIN</code>, because those are inconsistent with it. The <code>restricted</code> Pod Security level requires <code>false</code>.</p></div></div>
+
+<div class="card"><h2>🗄️ Locked cabinets and shared drawers (files and volumes)</h2>
+<p class="lead">Can your worker write in the place where the app needs to write? This is the number one reason hardened pods "suddenly break".</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> <code>readOnlyRootFilesystem</code> locks the cabinets that came with the floor. You still need a <b>drawer you may write in</b> (an <code>emptyDir</code>). <code>fsGroup</code> puts a team sticker on a shared drawer so the whole team may open it.</p></div>
+<div class="row"><label>Run as <select id="f-uid"><option value="1000">appuser (UID 1000)</option><option value="0">root (UID 0)</option></select></label>
+<label>Capabilities <select id="f-cap"><option value="def">runtime default</option><option value="all">drop ALL</option></select></label>
+<label>fsGroup <select id="f-fsg"><option value="">not set</option><option value="2000">fsGroup: 2000</option></select></label>
+<label><input type="checkbox" id="f-ro"> readOnlyRootFilesystem</label></div>
+<div class="tw"><table><thead><tr><th>Where the app writes</th><th>Owner and mode</th><th>Result</th></tr></thead><tbody id="f-out" aria-live="polite"></tbody></table></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> <code>fsGroup</code> makes the kubelet set group ownership on supported volumes and adds that group to the process. Support depends on the volume type and CSI driver. <code>fsGroupChangePolicy: OnRootMismatch</code> avoids slow recursive changes on big volumes. A fresh PVC is often owned by root. <code>supplementalGroups</code> adds more groups. Kubernetes also merges the user's groups from the image's <code>/etc/group</code>. The <code>supplementalGroupsPolicy: Strict</code> option stops that implicit merge (a newer field, so check your cluster version). When <code>runAsUser</code> is set without <code>runAsGroup</code>, the primary group is usually 0. Rows 3 and 4 use an image that has a <code>/app/cache</code> folder owned by UID 1000 and the standard <code>/tmp</code> (mode 1777).</p></div></div>
+</section>
+
+<!-- 8 -->
+<section class="page" id="p8" role="tabpanel">
+<div class="card"><h2>🕴️ Bouncers: seccomp, AppArmor and SELinux</h2>
+<p class="lead">Even a worker with the right badge and keycards still asks the building staff for things. Bouncers check the <b>request itself</b>.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> <b>seccomp</b> is a short list of the <i>kinds of requests</i> the staff will accept from your floor ("open a file", "send a message"; never "reboot the building"). <b>AppArmor</b> and <b>SELinux</b> are room-specific rules: <i>"this team may read these folders and write only here"</i>.</p></div>
+<h3>🔒🔒 Two locks on every request</h3>
+<div class="row"><label>Seccomp profile <select id="s-prof"><option value="RuntimeDefault">RuntimeDefault</option><option value="Unconfined">Unconfined</option><option value="Custom">Localhost: a tiny custom allowlist</option></select></label>
+<label>Extra keycard added <select id="s-cap"><option value="">none (default 14)</option><option>SYS_ADMIN</option><option>SYS_BOOT</option><option>SYS_MODULE</option><option>SYS_TIME</option></select></label></div>
+<div class="tw"><table><thead><tr><th>Request (syscall)</th><th>Lock 1: keycard</th><th>Lock 2: seccomp</th><th>Result</th></tr></thead><tbody id="s-out" aria-live="polite"></tbody></table></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> a request must pass <i>both</i> checks. The <code>RuntimeDefault</code> profile (from containerd or CRI-O) blocks a few dozen dangerous or rarely needed syscalls and lets the rest through. Several of them are only allowed when the matching capability is held, which is why the table above works this way. The Kubernetes docs warn that default profiles <b>can differ between runtimes and versions</b>, and the custom profile here is only an illustration.</p></div></div>
+
+<div class="card"><h2>🧭 seccomp, AppArmor, SELinux side by side</h2>
+<div class="tw"><table><thead><tr><th></th><th>seccomp</th><th>AppArmor</th><th>SELinux</th></tr></thead><tbody>
+<tr><td><b>Filters</b></td><td>System calls (the verbs)</td><td>Resource access by path (the nouns)</td><td>Everything, by security labels</td></tr>
+<tr><td><b>Typical OS</b></td><td>Any Linux node</td><td>Debian and Ubuntu family</td><td>RHEL family, OpenShift</td></tr>
+<tr><td><b>Pod field</b></td><td><code>seccompProfile</code></td><td><code>appArmorProfile</code></td><td><code>seLinuxOptions</code></td></tr>
+<tr><td><b>Easy win</b></td><td><code>type: RuntimeDefault</code></td><td><code>type: RuntimeDefault</code></td><td>Keep the node's default policy enabled (baseline restricts type, user and role)</td></tr></tbody></table></div>
+<pre class="cp"><code>securityContext:
+  seccompProfile:
+    type: RuntimeDefault      # or Localhost + localhostProfile, or Unconfined
+  appArmorProfile:
+    type: RuntimeDefault</code></pre>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> seccomp types are <code>RuntimeDefault</code>, <code>Localhost</code> (a JSON file on the node, under <code>/var/lib/kubelet/seccomp</code>) and <code>Unconfined</code>. <b>Privileged containers always run Unconfined.</b> A container or pod that sets no profile runs Unconfined unless the kubelet is started with seccomp default on (<code>seccompDefault: true</code>, generally available since v1.27). The <code>appArmorProfile</code> field is generally available since v1.30. Before that, AppArmor used an annotation. The <code>restricted</code> Pod Security level requires a seccomp profile of <code>RuntimeDefault</code> or <code>Localhost</code>.</p></div></div>
+</section>
+
+<!-- 9 -->
+<section class="page" id="p9" role="tabpanel">
+<div class="card"><h2>💥 Break-outs: how a floor can reach the whole building</h2>
+<p class="lead">Some settings knock down the walls between your floor and the rest of the building. Tick the settings below and watch the danger meter. This lab is for <b>defenders</b>: it shows what to look for and what to use instead.</p>
+<div class="two"><div id="w-risks"></div><div><div class="stats"><div class="stat">Danger: <b id="r-level">Safe</b></div><div class="stat">Risky settings: <b id="r-n">0</b></div></div><div class="meter" id="r-meter"><i></i><i></i><i></i></div><div id="r-out" aria-live="polite"></div></div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> the usual suspects are <code>privileged: true</code>, host namespaces (<code>hostPID</code>, <code>hostNetwork</code>, <code>hostIPC</code>), <code>hostPath</code> volumes (especially the container runtime socket or <code>/</code>), and <code>CAP_SYS_ADMIN</code>. They are also the exact things the <code>baseline</code> Pod Security level forbids. Danger often comes from <b>combinations</b>. The ratings are a rough teaching guide, not a scoring standard.</p></div></div>
+</section>
+
+<!-- 10 -->
+<section class="page" id="p10" role="tabpanel">
+<div class="card"><h2>🏠 Private offices (user namespaces)</h2>
+<p class="lead">What if the manager's badge on your floor was only valid on your floor?</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> Inside your private office, badge <b>0</b> really is the manager. But the building's records translate every number: your "badge 0" is recorded as an <b>ordinary visitor number</b> everywhere else. If someone sneaks out of your office, they are just a visitor.</p></div>
+<div class="row"><label><input type="checkbox" id="ns-on"> <code>hostUsers: false</code></label><label>Container UID <select id="ns-uid"><option>0</option><option>1000</option><option>65535</option></select></label></div>
+<div class="stats"><div class="stat">Inside the container: <b id="ns-in"></b></div><div class="stat">On the node: <b id="ns-host"></b></div></div>
+<div class="step" id="ns-out" aria-live="polite"></div>
+<pre class="cp"><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: userns
+spec:
+  hostUsers: false          # a pod spec field, not part of securityContext
+  containers:
+  - name: app
+    image: debian:trixie-slim
+    command: ["sleep", "3600"]</code></pre>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> user namespaces are <b>stable since Kubernetes v1.36</b> (first available in v1.28) and you opt in per pod with <code>hostUsers: false</code>. Without a user namespace, root in a container is root on the node if it escapes. Capabilities granted to the container are then valid on the host too. With one, they are only valid inside the namespace. The mapping is shown by <code>cat /proc/self/uid_map</code>, where the last number should be 65536 inside the container.</p></div></div>
+
+<div class="card"><h2>✅ What the nodes need</h2>
+<p class="muted">Click to tick off your checklist.</p>
+<div class="chk" id="ns-req"></div>
+<div class="stats"><div class="stat">Ready: <b id="ns-ready">0</b>/6</div></div>
+<div class="warn"><p><b>Limits:</b> a pod that uses a user namespace cannot also set <code>hostNetwork</code>, <code>hostIPC</code> or <code>hostPID</code>. Some volume types are not supported (for example raw block volumes and NFS, because they lack idmap mount support). Keep CNI agents and node exporters that need host namespaces outside this policy. Always check the current Kubernetes docs for the limits that apply to your version.</p></div></div>
+</section>
+
+<!-- 11 -->
+<section class="page" id="p11" role="tabpanel">
+<div class="card"><h2>🕵️ Building inspectors: Pod Security Standards</h2>
+<p class="lead">Inspectors check every pod <b>before</b> it moves in. Three rulebooks, from relaxed to strict.</p>
+<div class="analogy"><p><b>🎯 Analogy.</b> <b>Privileged</b> = "anything goes" (for the building's own maintenance crew only). <b>Baseline</b> = "no known dangerous tricks". <b>Restricted</b> = "follow every current best practice".</p></div>
+<div class="grid"><div class="box"><h3>🟥 Privileged</h3><p class="small">No restrictions. For trusted system and infrastructure workloads.</p></div><div class="box"><h3>🟨 Baseline</h3><p class="small">Blocks known privilege escalations: privileged containers, host namespaces, <code>hostPath</code>, added capabilities outside a short list, Unconfined seccomp.</p></div><div class="box"><h3>🟩 Restricted</h3><p class="small">Everything in baseline plus: <code>runAsNonRoot: true</code>, <code>allowPrivilegeEscalation: false</code>, drop ALL capabilities (only <code>NET_BIND_SERVICE</code> may be added back), seccomp <code>RuntimeDefault</code> or <code>Localhost</code>, limited volume types.</p></div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> Pod Security Admission (PSA) is the built-in controller that enforces these levels. It is generally available since v1.25 and replaced PodSecurityPolicy. You switch it on per namespace with labels. The baseline allowed list for <code>capabilities.add</code> is: <code>AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, MKNOD, NET_BIND_SERVICE, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT</code>. Notice that <code>NET_RAW</code> is <i>not</i> on it, even though many runtimes grant it by default.</p></div></div>
+
+<div class="card"><h2>🧪 Inspect a pod</h2>
+<div class="row" id="i-presets"></div>
+<div class="two"><pre class="cp"><code id="i-yaml"></code></pre><div>
+<fieldset><legend>Namespace labels</legend>
+<div class="row"><label>enforce <select data-mode="enforce"><option value="none">(none)</option><option>privileged</option><option selected>baseline</option><option>restricted</option></select></label>
+<label>audit <select data-mode="audit"><option value="none">(none)</option><option>privileged</option><option>baseline</option><option selected>restricted</option></select></label>
+<label>warn <select data-mode="warn"><option value="none">(none)</option><option>privileged</option><option>baseline</option><option selected>restricted</option></select></label></div></fieldset>
+<div id="i-out" aria-live="polite"></div></div></div>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> <b>enforce</b> rejects, <b>audit</b> adds an audit-log annotation and <b>warn</b> shows the user a warning. Enforcement works on the <b>Pod</b> that a controller creates, so a Deployment can be accepted while its pods are rejected (check ReplicaSet events). PSA is checked when pods are created or updated and does not evict running pods. Exemptions are configured in the API server and should be kept short.</p></div></div>
+
+<div class="card"><h2>🚦 Rolling it out without breaking things</h2>
+<div class="dots" id="ro-dots"></div><div class="step" id="ro-text"></div>
+<div><button class="btn" id="ro-prev" type="button">◀ Back</button><button class="btn p" id="ro-next" type="button">Next ▶</button></div>
+<h3>Namespace labels</h3>
+<pre class="cp"><code>apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted</code></pre>
+<pre class="cp"><code># preview what a stricter level would do to the pods already running
+kubectl label --dry-run=server --overwrite ns payments pod-security.kubernetes.io/enforce=restricted</code></pre></div>
+
+<div class="card"><h2>🧰 When three levels are not enough: policy engines</h2>
+<p>PSA has just three fixed levels. For field-level rules, such as "every container must set <code>runAsNonRoot</code>" or "images only from our registry", add a policy engine.</p>
+<div class="grid"><div class="box"><h3>ValidatingAdmissionPolicy</h3><p class="small">Built into the API server, written in CEL. Stable since v1.30.</p></div><div class="box"><h3>Kyverno</h3><p class="small">Policies written as Kubernetes YAML. Can validate, mutate and generate.</p></div><div class="box"><h3>OPA Gatekeeper</h3><p class="small">Policies written in Rego, with constraint templates.</p></div></div>
+<pre class="cp"><code>apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: require-run-as-non-root
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validations:
+  - expression: "object.spec.containers.all(c, has(c.securityContext) &amp;&amp; has(c.securityContext.runAsNonRoot) &amp;&amp; c.securityContext.runAsNonRoot == true)"
+    message: "every container must set securityContext.runAsNonRoot: true"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: require-run-as-non-root
+spec:
+  policyName: require-run-as-non-root
+  validationActions: ["Warn"]      # switch to ["Deny"] once the warnings are clean
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        policy: restricted</code></pre>
+<p class="small muted">This example only counts container-level settings. Test any policy on a non-production cluster first (<code>kubectl apply --dry-run=server</code>).</p></div>
+</section>
+
+<!-- 12 -->
+<section class="page" id="p12" role="tabpanel">
+<div class="card"><h2>🛠️ Build it: make your own securityContext</h2>
+<p class="lead">Change any setting. The page shows what the process can do, the Docker command, the Pod YAML, and which Pod Security level the pod would pass.</p>
+<div class="row" id="pg-presets"></div>
+<div class="two"><div>
+<fieldset><legend>User</legend><div id="pg-uid"></div></fieldset>
+<fieldset><legend>Settings</legend>
+<label class="opt"><input type="checkbox" id="pg-nonroot"><span><code>runAsNonRoot: true</code><small>Kubernetes refuses to start a container that would run as root.</small></span></label>
+<label class="opt"><input type="checkbox" id="pg-noesc"><span><code>allowPrivilegeEscalation: false</code><small>Setuid programs and file capabilities cannot raise privileges.</small></span></label>
+<label class="opt"><input type="checkbox" id="pg-rofs"><span><code>readOnlyRootFilesystem: true</code><small>Mount an <code>emptyDir</code> for scratch space.</small></span></label>
+<label class="opt"><input type="checkbox" id="pg-priv"><span><code>privileged: true</code><small>Every capability plus host devices. Overrides the capability settings.</small></span></label>
+<label class="opt"><input type="checkbox" id="pg-huser"><span><code>hostUsers: false</code><small>A user namespace for the pod (pod spec field).</small></span></label>
+<label class="opt"><input type="checkbox" id="pg-hnet"><span><code>hostNetwork: true</code><small>Share the node's network (pod spec field).</small></span></label>
+<label class="opt"><input type="checkbox" id="pg-hpid"><span><code>hostPID: true</code><small>See the node's processes (pod spec field).</small></span></label></fieldset>
+<fieldset><legend>Seccomp</legend><div id="pg-sec"></div></fieldset></div>
+<div>
+<label class="opt"><input type="checkbox" id="pg-dropall"><span><code>drop: ["ALL"]</code><small>Start with an empty lanyard, then click cards to add back.</small></span></label>
+<div class="lanyard" id="lan6" role="group" aria-label="Capabilities. Click a card to toggle it."></div>
+<p class="small muted">Click a card to drop it (teal) or add it (hatched). Teal = granted, amber = added, hatched = not granted.</p></div></div>
+<div class="good" id="pg-banner" role="status"></div>
+<div class="stats"><div class="stat">Actions allowed: <b id="pg-n">0</b>/13</div><div class="stat">Keycards: <b id="pg-caps">0</b></div><div class="stat">Pod Security level: <b id="pg-level"></b></div><div class="stat">CapBnd: <b class="mono" id="pg-bnd"></b></div><div class="stat">CapEff: <b class="mono" id="pg-eff"></b></div></div>
+<div class="two"><div><h3>What can the process do?</h3><ul class="acts" id="pg-acts"></ul>
+<h3>If an attacker escapes the container…</h3><div class="step" id="pg-escape"></div></div>
+<div><h3>Pod Security check</h3><div id="pg-pss"></div><h3>Docker command</h3><pre class="cp"><code id="pg-docker"></code></pre><p class="small muted" id="pg-dnote"></p><h3>Pod YAML</h3><pre class="cp"><code id="pg-yaml"></code></pre></div></div></div>
+</section>
+
+<!-- 13 -->
+<section class="page" id="p13" role="tabpanel">
+<div class="card"><h2>🔧 When it breaks: symptoms and fixes</h2>
+<p class="lead">Hardening is easy to turn on and sometimes surprising. Click the symptom you see.</p>
+<div class="two"><div id="w-sym"></div><div id="w-sym-out" class="step" aria-live="polite">Pick a symptom.</div></div></div>
+<div class="card"><h2>🔍 Check what is really happening</h2>
+<pre class="cp"><code>kubectl exec web-pod -- id
+kubectl exec web-pod -- grep -E 'Cap|NoNewPrivs|Seccomp' /proc/1/status
+capsh --decode=00000000a80425fb
+kubectl get pod web-pod -o jsonpath='{.spec.securityContext}{"\n"}{.spec.containers[0].securityContext}{"\n"}'
+kubectl describe pod web-pod            # read the Events section
+kubectl explain pod.spec.securityContext
+kubectl explain pod.spec.containers.securityContext.capabilities
+kubectl exec web-pod -- cat /proc/self/uid_map</code></pre>
+<div class="grownup"><p><b>🧓 Grown-up terms:</b> in <code>/proc/1/status</code>, <code>NoNewPrivs: 1</code> means <code>allowPrivilegeEscalation</code> is false, and <code>Seccomp: 2</code> means a seccomp filter is active (0 = none). Tools such as kube-linter, Kubescape and Trivy can scan manifests for risky settings before you deploy.</p></div></div>
+</section>
+
+<!-- 14 -->
+<section class="page" id="p14" role="tabpanel">
+<div class="card"><h2>🧠 Quick quiz</h2><div id="quiz"></div>
+<button class="btn p" id="quiz-check" type="button">Check answers</button><p class="err" id="quiz-err" role="alert"></p>
+<p><b>Score: <span id="quiz-score">0</span> / <span id="quiz-total">0</span></b></p></div>
+
+<div class="card"><h2>✅ Production checklist</h2><p class="muted">Tick what your workloads already do.</p>
+<div class="chk" id="ck-list"></div><div class="pbar"><i id="ck-bar" style="width:0%"></i></div><p aria-live="polite"><b id="ck-out"></b></p></div>
+
+<div class="card"><h2>📄 A hardened Deployment you can start from</h2>
+<pre class="cp"><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: web}
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      automountServiceAccountToken: false     # only if the app does not call the API
+      # hostUsers: false                      # optional: needs nodes that support user namespaces
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: web
+        image: registry.example.com/web:1.0.0   # prefer a pinned tag or digest
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: tmp
+        emptyDir: {}</code></pre>
+<p class="small muted">This passes the <code>restricted</code> level. Add resource requests and limits, probes and a NetworkPolicy for a complete setup.</p></div>
+
+<div class="card"><h2>📋 Cheat sheet</h2><div class="tw"><table><thead><tr><th>Building word</th><th>Real word</th><th>What it means</th></tr></thead><tbody id="cheat"></tbody></table></div></div>
+</section>
+
+</main>
+<footer>Unofficial learning aid. Checked against the Kubernetes documentation: user namespaces are stable since v1.36, Pod Security Admission is stable since v1.25, ValidatingAdmissionPolicy is stable since v1.30, and the AppArmor field is stable since v1.30. Risk ratings are a rough teaching guide. Always test security changes on a non-production cluster first.</footer>
+<script>
+(function(){
+'use strict';
+//PURE-START
+const CAPS=[
+ {n:'CHOWN',b:0,d:1,risk:'low',what:'Change the owner or group of any file.',ex:'chown 1000 /data/upload.bin'},
+ {n:'DAC_OVERRIDE',b:1,d:1,risk:'med',what:'Ignore file read, write and execute permission bits.',ex:'cat /home/other/private.txt'},
+ {n:'DAC_READ_SEARCH',b:2,d:0,risk:'high',what:'Ignore read permission on files and read/search permission on folders.',ex:'Read any file regardless of its mode'},
+ {n:'FOWNER',b:3,d:1,risk:'low',what:'Act as the owner of files you do not own, for example to change their mode.',ex:'chmod 600 /data/shared.log'},
+ {n:'FSETID',b:4,d:1,risk:'low',what:'Keep setuid and setgid bits when a file is modified.',ex:'Supports file-editing tools'},
+ {n:'KILL',b:5,d:1,risk:'low',what:'Send signals to processes owned by other users.',ex:'kill -9 4242'},
+ {n:'SETGID',b:6,d:1,risk:'med',what:'Switch to any group ID.',ex:'gosu appuser:appgroup ./server'},
+ {n:'SETUID',b:7,d:1,risk:'med',what:'Switch to any user ID.',ex:'gosu appuser ./server'},
+ {n:'SETPCAP',b:8,d:1,risk:'med',what:'Change the capability sets of processes, within limits.',ex:'Used by runtimes while starting processes'},
+ {n:'LINUX_IMMUTABLE',b:9,d:0,risk:'med',what:'Set the immutable and append-only file flags.',ex:'chattr +i /data/file'},
+ {n:'NET_BIND_SERVICE',b:10,d:1,risk:'low',what:'Listen on ports below 1024.',ex:'nginx listening on port 80'},
+ {n:'NET_BROADCAST',b:11,d:0,risk:'low',what:'Broadcast and listen to multicast. Rarely used.',ex:'Rarely needed'},
+ {n:'NET_ADMIN',b:12,d:0,risk:'high',what:'Change network configuration: interfaces, routes and firewall rules.',ex:'iptables -A INPUT -j DROP'},
+ {n:'NET_RAW',b:13,d:1,risk:'med',what:'Open raw sockets to craft or sniff packets. Many hardening guides drop it because it enables spoofing.',ex:'ping, arping'},
+ {n:'IPC_LOCK',b:14,d:0,risk:'low',what:'Lock memory so it cannot be swapped out.',ex:'Databases that pin memory'},
+ {n:'IPC_OWNER',b:15,d:0,risk:'low',what:'Ignore permission checks on System V IPC objects.',ex:'Rarely needed'},
+ {n:'SYS_MODULE',b:16,d:0,risk:'high',what:'Load and unload kernel modules.',ex:'modprobe dummy'},
+ {n:'SYS_RAWIO',b:17,d:0,risk:'high',what:'Raw I/O port and low-level device access.',ex:'Direct hardware access'},
+ {n:'SYS_CHROOT',b:18,d:1,risk:'low',what:'Use chroot to change the apparent root directory.',ex:'chroot /newroot /bin/sh'},
+ {n:'SYS_PTRACE',b:19,d:0,risk:'high',what:'Inspect and control other processes.',ex:'strace -p 1'},
+ {n:'SYS_PACCT',b:20,d:0,risk:'low',what:'Turn process accounting on and off.',ex:'Rarely needed'},
+ {n:'SYS_ADMIN',b:21,d:0,risk:'high',what:'A catch-all with dozens of powers, including mounts and namespaces. Close to root on the host. Avoid it.',ex:'mount -t tmpfs none /mnt'},
+ {n:'SYS_BOOT',b:22,d:0,risk:'med',what:'Reboot the machine and load a new kernel.',ex:'reboot'},
+ {n:'SYS_NICE',b:23,d:0,risk:'low',what:'Raise process priority and set scheduling policy.',ex:'nice -n -10 ./worker'},
+ {n:'SYS_RESOURCE',b:24,d:0,risk:'med',what:'Override resource limits and quotas.',ex:'Raise ulimit above the hard limit'},
+ {n:'SYS_TIME',b:25,d:0,risk:'med',what:'Set the system clock. This affects the whole node.',ex:"date -s '2030-01-01'"},
+ {n:'SYS_TTY_CONFIG',b:26,d:0,risk:'low',what:'Configure virtual terminals.',ex:'Rarely needed'},
+ {n:'MKNOD',b:27,d:1,risk:'med',what:'Create special device files.',ex:'mknod /dev/mydev c 1 5'},
+ {n:'LEASE',b:28,d:0,risk:'low',what:'Take leases on files owned by other users.',ex:'Rarely needed'},
+ {n:'AUDIT_WRITE',b:29,d:1,risk:'low',what:'Write records to the kernel audit log.',ex:'sshd and login tools writing audit entries'},
+ {n:'AUDIT_CONTROL',b:30,d:0,risk:'med',what:'Turn kernel auditing on or off and change audit rules.',ex:'auditctl -e 0'},
+ {n:'SETFCAP',b:31,d:1,risk:'med',what:'Set file capabilities on files.',ex:'setcap cap_net_bind_service=+ep ./myapp'},
+ {n:'MAC_OVERRIDE',b:32,d:0,risk:'high',what:'Override mandatory access control (used by some Linux security modules).',ex:'Bypass MAC policy'},
+ {n:'MAC_ADMIN',b:33,d:0,risk:'high',what:'Change mandatory access control configuration (used by some Linux security modules).',ex:'Reconfigure a security module'},
+ {n:'SYSLOG',b:34,d:0,risk:'med',what:'Privileged kernel log operations.',ex:'dmesg'},
+ {n:'WAKE_ALARM',b:35,d:0,risk:'low',what:'Set timers that wake the system from suspend.',ex:'Rarely needed'},
+ {n:'BLOCK_SUSPEND',b:36,d:0,risk:'low',what:'Prevent the system from suspending.',ex:'Rarely needed'},
+ {n:'AUDIT_READ',b:37,d:0,risk:'low',what:'Read the audit log.',ex:'Audit tooling'},
+ {n:'PERFMON',b:38,d:0,risk:'med',what:'Performance monitoring and observability operations.',ex:'perf record'},
+ {n:'BPF',b:39,d:0,risk:'high',what:'Privileged BPF operations.',ex:'Load eBPF programs'},
+ {n:'CHECKPOINT_RESTORE',b:40,d:0,risk:'med',what:'Checkpoint and restore a process.',ex:'CRIU'}
+];
+const CAPN=Object.fromEntries(CAPS.map(c=>[c.n,c]));
+const RISK={low:'Low risk',med:'Medium risk',high:'High risk'};
+const BASELINE_ADD=['AUDIT_WRITE','CHOWN','DAC_OVERRIDE','FOWNER','FSETID','KILL','MKNOD','NET_BIND_SERVICE','SETFCAP','SETGID','SETPCAP','SETUID','SYS_CHROOT'];
+
+function capHex(names){let v=0n;for(const n of names){const c=CAPN[n];if(c)v|=(1n<<BigInt(c.b));}return v.toString(16).padStart(16,'0');}
+function decodeHex(raw){
+  const s=String(raw).trim().replace(/^0x/i,'').replace(/[\s_]/g,'');
+  if(!/^[0-9a-fA-F]{1,16}$/.test(s))return {error:'Enter 1 to 16 hex digits, for example 00000000a80425fb.'};
+  const v=BigInt('0x'+s);const names=[];let unknown=0;
+  for(let b=0;b<64;b++){if((v>>BigInt(b))&1n){const c=CAPS.find(x=>x.b===b);if(c)names.push(c.n);else unknown++;}}
+  return {names,unknown,hex:s.padStart(16,'0')};
+}
+
+/* ---------- states ---------- */
+function mkState(o){o=o||{};return Object.assign({uid:'unset',nonRoot:false,noEsc:false,roFs:false,priv:false,seccomp:'unset',hostUsers:true,hostNet:false,hostPid:false,dropAll:false},o,{drop:new Set(o.drop||[]),add:new Set(o.add||[])});}
+function granted(s,c){return s.priv||s.add.has(c.n)||(c.d&&!s.dropAll&&!s.drop.has(c.n));}
+function capView(s,c){
+  if(s.priv)return{cls:'on',label:'privileged'};
+  if(granted(s,c)){if(s.add.has(c.n))return{cls:'added',label:c.d?'added back':'added'};return{cls:'on',label:'default'};}
+  return c.d?{cls:'dropped',label:'dropped'}:{cls:'off',label:'not granted'};
+}
+function effRoot(s){return s.uid!=='1000';}   // 'unset' means the image runs as root in this lab
+function grantedNames(s){return CAPS.filter(c=>granted(s,c)).map(c=>c.n);}
+
+const ACTIONS=[
+ {label:'Listen on port 80',cmd:'nginx (port 80)',cap:'NET_BIND_SERVICE'},
+ {label:'Listen on port 8080',cmd:'python3 -m http.server 8080',none:1},
+ {label:'Change a file owner',cmd:'chown 1000 /data/file',cap:'CHOWN'},
+ {label:"Stop another user's process",cmd:'kill -9 4242',cap:'KILL'},
+ {label:'Switch to another user ID',cmd:'gosu 2000 id',cap:'SETUID'},
+ {label:'Send raw network packets',cmd:'arping 10.0.0.1',cap:'NET_RAW'},
+ {label:'Write into a system folder',cmd:'touch /usr/local/bin/tool',rw:1},
+ {label:'Gain root through a setuid program',cmd:'./setuid-helper',esc:1},
+ {label:'Change network settings',cmd:'iptables -A INPUT -j DROP',cap:'NET_ADMIN'},
+ {label:'Debug another process',cmd:'strace -p 1',cap:'SYS_PTRACE'},
+ {label:'Mount a filesystem',cmd:'mount -t tmpfs none /mnt',cap:'SYS_ADMIN'},
+ {label:'Load a kernel module',cmd:'modprobe dummy',cap:'SYS_MODULE'},
+ {label:'Read the host disk device',cmd:'cat /dev/sda',dev:1}
+];
+function evalPlay(s){
+  const root=effRoot(s);
+  let invalid=null;
+  if(s.noEsc&&(s.priv||s.add.has('SYS_ADMIN')))invalid='The API server rejects allowPrivilegeEscalation: false together with '+(s.priv?'privileged: true':'the SYS_ADMIN capability')+'. They contradict each other.';
+  else if(!s.hostUsers&&(s.hostNet||s.hostPid))invalid='The API server rejects hostUsers: false together with hostNetwork or hostPID. A pod with a user namespace cannot share those host namespaces.';
+  let blocked=null;
+  if(!invalid&&s.nonRoot&&root)blocked=s.uid==='0'?"Error: container's runAsUser breaks non-root policy. The pod stays in CreateContainerConfigError. Set runAsUser to a non-zero number.":'Error: container has runAsNonRoot and image will run as root. The pod stays in CreateContainerConfigError. Set runAsUser to a non-zero number.';
+  const names=grantedNames(s);const caps=new Set(names);
+  const allowEsc=s.priv?true:!s.noEsc;
+  const rows=ACTIONS.map(a=>{
+    if(a.none)return{a,ok:true,why:'Ports above 1023 need no capability.'};
+    if(a.cap){
+      if(!root)return{a,ok:false,why:'A non-root process starts with no active capabilities, even if the container was given '+a.cap+'.'};
+      return caps.has(a.cap)?{a,ok:true,why:'Holds '+a.cap+'.'}:{a,ok:false,why:'Needs '+a.cap+', which this container does not have.'};
+    }
+    if(a.rw){
+      if(!root)return{a,ok:false,why:'Needs root: system folders belong to root.'};
+      if(s.roFs)return{a,ok:false,why:'The root filesystem is read-only.'};
+      return{a,ok:true,why:'Root owns the folder and the filesystem is writable.'};
+    }
+    if(a.esc)return allowEsc?{a,ok:true,why:'Privilege escalation is allowed, so setuid bits take effect.'}:{a,ok:false,why:'allowPrivilegeEscalation is false, so setuid bits are ignored.'};
+    if(a.dev){
+      if(!s.priv)return{a,ok:false,why:'Host devices are only visible to privileged containers.'};
+      return root?{a,ok:true,why:'Privileged and running as root.'}:{a,ok:false,why:'Device files are root-owned and this process is non-root.'};
+    }
+  });
+  let escape;
+  if(!s.hostUsers)escape='An unprivileged host user. The user namespace maps container root to a high, unprivileged UID on the node.';
+  else if(s.priv)escape='Almost root on the node: every capability and access to host devices.';
+  else if(root)escape='Root (UID 0) on the node, but still limited by the capabilities, seccomp and AppArmor/SELinux you left in place.';
+  else escape='An unprivileged user (UID 1000) on the node, with no active capabilities.';
+  return{invalid,blocked,root,rows,allowed:rows.filter(r=>r.ok).length,names,
+    capBnd:capHex(names),capEff:root?capHex(names):'0000000000000000',escape,pss:pssEval(s)};
+}
+function pssEval(s){
+  const base=[],rest=[];const add=[...s.add];
+  if(s.priv)base.push('privileged (container "app" must not set securityContext.privileged=true)');
+  if(s.hostNet)base.push('host namespaces (hostNetwork=true)');
+  if(s.hostPid)base.push('host namespaces (hostPID=true)');
+  add.filter(n=>!BASELINE_ADD.includes(n)).forEach(n=>base.push('non-default capabilities (container "app" must not include "'+n+'" in securityContext.capabilities.add)'));
+  if(s.seccomp==='Unconfined')base.push('seccompProfile (container "app" must not set securityContext.seccompProfile.type to "Unconfined")');
+  if(!s.noEsc)rest.push('allowPrivilegeEscalation != false (container "app" must set securityContext.allowPrivilegeEscalation=false)');
+  if(!s.dropAll)rest.push('unrestricted capabilities (container "app" must set securityContext.capabilities.drop=["ALL"])');
+  add.filter(n=>n!=='NET_BIND_SERVICE'&&BASELINE_ADD.includes(n)).forEach(n=>rest.push('unrestricted capabilities (container "app" must not include "'+n+'" in securityContext.capabilities.add)'));
+  if(!s.nonRoot)rest.push('runAsNonRoot != true (pod or container "app" must set securityContext.runAsNonRoot=true)');
+  if(s.uid==='0')rest.push('runAsUser=0 (container "app" must not set runAsUser=0)');
+  if(!(s.seccomp==='RuntimeDefault'))rest.push('seccompProfile (pod or container "app" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")');
+  const level=base.length?'privileged':(rest.length?'baseline':'restricted');
+  return{base,rest,level,rank:base.length?0:(rest.length?1:2)};
+}
+function modeOutcome(pssRank,modes){
+  const R={none:-1,privileged:0,baseline:1,restricted:2};
+  const out={};
+  for(const k of ['enforce','audit','warn']){const m=R[modes[k]];out[k]=(m<0)?'off':(pssRank>=m?'pass':'fail');}
+  return{out,rejected:out.enforce==='fail'};
+}
+function dockerCmd(s,one){
+  const l=['docker run'];
+  if(s.uid==='1000')l.push('--user 1000');else if(s.uid==='0')l.push('--user 0');
+  if(s.priv)l.push('--privileged');
+  if(s.dropAll)l.push('--cap-drop ALL');else [...s.drop].forEach(c=>l.push('--cap-drop '+c));
+  [...s.add].forEach(c=>l.push('--cap-add '+c));
+  if(s.roFs)l.push('--read-only --tmpfs /tmp');
+  if(s.noEsc)l.push('--security-opt no-new-privileges');
+  if(s.seccomp==='Unconfined')l.push('--security-opt seccomp=unconfined');
+  if(s.hostNet)l.push('--network host');
+  if(s.hostPid)l.push('--pid host');
+  l.push('ubuntu sleep 3600');
+  return(one||l.length<=2)?l.join(' '):l.join(' \\\n  ');
+}
+function k8sYaml(s){
+  const sc=[];
+  if(s.uid==='1000')sc.push('runAsUser: 1000');else if(s.uid==='0')sc.push('runAsUser: 0');
+  if(s.nonRoot)sc.push('runAsNonRoot: true');
+  if(s.priv)sc.push('privileged: true');
+  if(s.noEsc)sc.push('allowPrivilegeEscalation: false');
+  if(s.roFs)sc.push('readOnlyRootFilesystem: true');
+  if(s.seccomp==='RuntimeDefault'||s.seccomp==='Unconfined'){sc.push('seccompProfile:');sc.push('  type: '+s.seccomp);}
+  const dr=s.dropAll?['ALL']:[...s.drop],ad=[...s.add];
+  if(dr.length||ad.length){sc.push('capabilities:');if(dr.length)sc.push('  drop: '+JSON.stringify(dr));if(ad.length)sc.push('  add: '+JSON.stringify(ad));}
+  let y='apiVersion: v1\nkind: Pod\nmetadata:\n  name: web-pod\nspec:\n';
+  if(!s.hostUsers)y+='  hostUsers: false\n';
+  if(s.hostNet)y+='  hostNetwork: true\n';
+  if(s.hostPid)y+='  hostPID: true\n';
+  y+='  containers:\n  - name: app\n    image: ubuntu\n    command: ["sleep", "3600"]\n';
+  if(sc.length)y+='    securityContext:\n'+sc.map(x=>'      '+x).join('\n')+'\n';
+  return y.trimEnd();
+}
+
+/* ---------- tab 3 ---------- */
+const DFS={
+ A:{label:'No USER line',sub:'The image default is root',text:'FROM debian:12-slim\nRUN apt-get update && apt-get install -y curl\nCMD ["sleep", "3600"]',id:'uid=0(root) gid=0(root) groups=0(root)',uid:0,note:'No USER line means root. Everything the app does, it does as UID 0.'},
+ B:{label:'USER appuser',sub:'Account created with useradd',text:'FROM debian:12-slim\nRUN useradd --create-home --uid 1000 appuser\nUSER appuser\nCMD ["sleep", "3600"]',id:'uid=1000(appuser) gid=1000(appuser) groups=1000(appuser)',uid:1000,note:'The account exists in /etc/passwd, so both the name and the group resolve.'},
+ C:{label:'USER 1000',sub:'A number with no account',text:'FROM debian:12-slim\nUSER 1000\nCMD ["sleep", "3600"]',id:'uid=1000 gid=0(root) groups=0(root)',uid:1000,note:'A numeric USER works without an account, but the group falls back to root (gid 0). Write USER 1000:1000 to set both.'}
+};
+const RUNS={
+ none:{label:'No override',sub:'Use the image default',flag:''},
+ u2000:{label:'--user 2000:2000',sub:'Override at start',flag:'--user 2000:2000 ',id:'uid=2000 gid=2000 groups=2000',uid:2000,note:'docker run --user beats the Dockerfile USER. The image only sets the default. Kubernetes runAsUser does the same job.'},
+ root:{label:'--user root',sub:'Override back to root',flag:'--user root ',id:'uid=0(root) gid=0(root) groups=0(root)',uid:0,note:'Anyone who can start the container can choose root again, which is one reason to enforce runAsNonRoot in Kubernetes.'}
+};
+function nonRootCheck(img,uid,nr){
+  const yaml='spec:\n  securityContext:\n'+(uid!==''?'    runAsUser: '+uid+'\n':'')+'    runAsNonRoot: '+nr;
+  const imgTxt={none:'(image has no USER line)',name:'(image has USER appuser)',num:'(image has USER 1000)'}[img];
+  let ok=true,msg='',why='';
+  if(!nr){const who=uid!==''?uid:(img==='num'?'1000':(img==='name'?'appuser':'0'));ok=true;msg='Starts. runAsNonRoot is off, so nothing is checked. Runs as '+(who==='0'?'root':who)+'.';why='Without runAsNonRoot nothing stops a root container.';}
+  else if(uid!==''){if(uid==='0'){ok=false;msg="container's runAsUser breaks non-root policy";why='runAsUser: 0 is root.';}else{ok=true;msg='Starts as UID '+uid+'.';why='runAsUser is a number and it is not 0, so the kubelet can verify it.';}}
+  else if(img==='num'){ok=true;msg='Starts as UID 1000.';why='The image user is a number and not 0.';}
+  else if(img==='name'){ok=false;msg='container has runAsNonRoot and image has non-numeric user (appuser), cannot verify user is non-root';why='The kubelet cannot turn a name into a number. Use USER 1000 in the image or set runAsUser in the pod.';}
+  else{ok=false;msg='container has runAsNonRoot and image will run as root';why='No USER line means root.';}
+  return{yaml,imgTxt,ok,msg,why};
+}
+function precedence(img,pod,ctr){
+  if(ctr)return{uid:ctr,src:'The container-level runAsUser wins.'};
+  if(pod)return{uid:pod,src:'The pod-level runAsUser applies.'};
+  return{uid:img,src:img==='0'?'Nothing overrides the image, which has no USER line, so it runs as root.':'Nothing overrides the image, so USER 1000 applies.'};
+}
+
+/* ---------- tab 7 ---------- */
+function setuidEval(user,esc){
+  if(user==='0')return{ok:true,cls:'good',text:'Already root, so there is nothing to gain. The question only matters for non-root users.'};
+  if(esc==='true')return{ok:false,cls:'warn',text:'The setuid-root helper runs as <b>root</b> for a moment. This is how ping, su and sudo work. It is also how an attacker with a bug in such a program becomes root in the container.'};
+  return{ok:true,cls:'good',text:'<b>no_new_privs</b> is set. The setuid bit is ignored, so the helper stays UID 1000. Programs like <code>sudo</code> and <code>su</code> stop working, which is the point. File capabilities from <code>setcap</code> are ignored in the same way.'};
+}
+function writeCheck(o){
+  const root=o.uid==='0',gset=new Set(['0']);if(o.fsGroup)gset.add(o.fsGroup);
+  const targets=[
+   {path:'/data  (emptyDir volume)',own:'root:root  mode 777',owner:'0',group:'0',mode:0o777,vol:true,fsg:true},
+   {path:'/data  (new PVC volume)',own:'root:root  mode 755',owner:'0',group:'0',mode:0o755,vol:true,fsg:true},
+   {path:'/tmp  (image filesystem)',own:'root:root  mode 1777',owner:'0',group:'0',mode:0o777,vol:false},
+   {path:'/app/cache  (image filesystem)',own:'1000:1000  mode 755',owner:'1000',group:'1000',mode:0o755,vol:false}
+  ];
+  return targets.map(t=>{
+    if(!t.vol&&o.roFs)return{t,ok:false,why:'The root filesystem is read-only. Mount an emptyDir where the app needs to write.'};
+    let owner=t.owner,group=t.group,mode=t.mode;
+    if(t.vol&&t.fsg&&o.fsGroup){group=o.fsGroup;mode=(t.mode===0o755)?0o775:t.mode;}
+    const uid=root?'0':'1000';
+    if(uid===owner)return(mode&0o200)?{t,ok:true,why:'The process owns it and the owner may write.'}:{t,ok:false,why:'The owner has no write bit.'};
+    if(gset.has(group)){
+      if(mode&0o020)return{t,ok:true,why:'The process is in group '+group+(o.fsGroup&&group===o.fsGroup?' (fsGroup)':'')+' and the group may write.'};
+      return{t,ok:false,why:'The process is in group '+group+' (its primary group), but group members cannot write here.'+(t.vol&&!o.fsGroup?' Set fsGroup so the volume gets a group with write permission.':'')};
+    }
+    if(mode&0o002)return{t,ok:true,why:'Everyone may write here.'};
+    if(root&&o.cap!=='all')return{t,ok:true,why:'Root skips permission checks (DAC_OVERRIDE is in the default set).'};
+    return{t,ok:false,why:root?'Root has no DAC_OVERRIDE after drop ALL, so it is treated like any other user and "others" cannot write.':'Not the owner, not in the group, and "others" cannot write.'+(t.vol&&!o.fsGroup?' Set fsGroup so the volume gets a group your process belongs to.':'')};
+  });
+}
+
+/* ---------- tab 8 ---------- */
+const SYSCALLS=[
+ {n:'mount',d:'Mount a filesystem',cap:'SYS_ADMIN'},
+ {n:'reboot',d:'Reboot the machine',cap:'SYS_BOOT'},
+ {n:'kexec_load',d:'Load a new kernel',cap:'SYS_BOOT'},
+ {n:'init_module',d:'Load a kernel module',cap:'SYS_MODULE'},
+ {n:'clock_settime',d:'Set the system clock',cap:'SYS_TIME'},
+ {n:'openat',d:'Open and read a file',cap:null},
+ {n:'connect',d:'Open a network connection',cap:null}
+];
+function syscallEval(profile,extraCap){
+  return SYSCALLS.map(s=>{
+    const lock1=s.cap===null||s.cap===extraCap;
+    let lock2;
+    if(profile==='Unconfined')lock2=true;
+    else if(profile==='RuntimeDefault')lock2=(s.cap===null)||s.cap===extraCap;
+    else lock2=(s.n==='openat');
+    return{s,lock1,lock2,ok:lock1&&lock2};
+  });
+}
+
+/* ---------- tab 9 ---------- */
+const RISKS=[
+ {id:'priv',w:3,label:'privileged: true',yaml:'securityContext:\n  privileged: true',what:'Every capability and the node\'s devices. Seccomp and AppArmor confinement are relaxed. Treat it as root on the node.',fix:'Remove it. Grant only the specific capability or device you need.'},
+ {id:'hostpath',w:3,label:'hostPath volume of / or the runtime socket',yaml:'volumes:\n- name: host\n  hostPath: {path: /}',what:'Reads and writes the node\'s files. A container runtime socket lets the pod control every container on the node.',fix:'Use a PersistentVolumeClaim, emptyDir, or a narrow read-only hostPath if you truly need one.'},
+ {id:'sysadmin',w:3,label:'capabilities add SYS_ADMIN',yaml:'capabilities:\n  add: ["SYS_ADMIN"]',what:'A catch-all keycard that is close to root on the host.',fix:'Find the one narrower capability the app really needs.'},
+ {id:'hostpid',w:2,label:'hostPID: true',yaml:'spec:\n  hostPID: true',what:'The container can see every process on the node, including other pods.',fix:'Leave it off. Use the metrics or debugging tools your platform provides.'},
+ {id:'hostnet',w:2,label:'hostNetwork: true',yaml:'spec:\n  hostNetwork: true',what:'Shares the node\'s network, so it can reach node-local services and bypass pod network rules.',fix:'Use a normal pod network and a Service.'},
+ {id:'ptrace',w:2,label:'capabilities add SYS_PTRACE',yaml:'capabilities:\n  add: ["SYS_PTRACE"]',what:'Can inspect and control other processes. Much worse with hostPID.',fix:'Only for short debugging sessions in a throwaway pod.'},
+ {id:'netadmin',w:2,label:'capabilities add NET_ADMIN',yaml:'capabilities:\n  add: ["NET_ADMIN"]',what:'Can change network interfaces, routes and firewall rules. Much worse with hostNetwork.',fix:'Use it only for network plugins and VPN sidecars, in a locked-down namespace.'},
+ {id:'hostipc',w:1,label:'hostIPC: true',yaml:'spec:\n  hostIPC: true',what:'Shares the node\'s shared-memory and IPC objects.',fix:'Leave it off.'},
+ {id:'netraw',w:1,label:'NET_RAW kept (many runtimes grant it by default)',yaml:'# nothing to write: it is in the default set',what:'Allows raw packets, which enables spoofing inside the pod network.',fix:'drop: ["ALL"] and add back only what you need.'},
+ {id:'root',w:1,label:'running as root (no runAsUser)',yaml:'# no runAsUser, no runAsNonRoot',what:'Root inside the container is root on the node if it escapes, unless a user namespace is used.',fix:'runAsNonRoot: true with a numeric runAsUser.'},
+ {id:'esc',w:1,label:'allowPrivilegeEscalation left at its default (true)',yaml:'# not set: defaults to true',what:'Setuid programs and file capabilities can still raise privileges.',fix:'allowPrivilegeEscalation: false'},
+ {id:'token',w:1,label:'service account token mounted but not needed',yaml:'# automountServiceAccountToken defaults to true',what:'If the pod is compromised, the token lets the attacker call the Kubernetes API with that account\'s permissions.',fix:'automountServiceAccountToken: false, and use least-privilege RBAC.'}
+];
+function riskEval(sel){
+  const items=RISKS.filter(r=>sel.has(r.id));
+  let score=items.reduce((a,r)=>a+r.w,0);const combos=[];
+  if(sel.has('hostpid')&&sel.has('ptrace')){score+=3;combos.push('hostPID + SYS_PTRACE: the container can inspect and control every process on the node.');}
+  if(sel.has('hostnet')&&sel.has('netadmin')){score+=3;combos.push('hostNetwork + NET_ADMIN: the container can change the node\'s own network settings.');}
+  if(sel.has('priv')&&sel.has('hostpath')){combos.push('privileged + hostPath: there is practically no boundary left between the pod and the node.');}
+  if(sel.has('root')&&sel.has('esc')&&items.length>=2){combos.push('Running as root with escalation allowed: nothing slows an attacker who gets code execution.');}
+  const level=items.some(r=>r.w===3)||score>=6?3:(score>=2?2:(score>=1?1:0));
+  return{items,score,combos,level,label:['Safe','Low','Risky','Dangerous'][level]};
+}
+
+/* ---------- tab 10 ---------- */
+function usernsMap(on,uid,start){
+  start=start||131072;
+  return{inside:uid,host:on?start+Number(uid):Number(uid),mapped:on,range:on?(start+' to '+(start+65535)):null};
+}
+
+/* ---------- tab 1 ---------- */
+const LAYERS=[
+ {e:'🛂',t:'Admission',who:'Pod Security Admission and policy engines',an:'The front desk checks your paperwork before you may enter the building.',gt:'Rejects or warns about pods that break the rules, before they ever run. Namespace labels set the level (privileged, baseline, restricted).',f:'pod-security.kubernetes.io/enforce'},
+ {e:'🪪',t:'Users and groups',who:'Who is the process?',an:'The badge number on each worker.',gt:'The numeric user and group the process runs as. Non-root is the single biggest win.',f:'runAsUser, runAsGroup, runAsNonRoot, fsGroup'},
+ {e:'🔑',t:'Capabilities',who:'Which slices of root power does it have?',an:'The keycards on the lanyard.',gt:'Linux splits root into about 40 capabilities. Drop ALL, then add back only what you need.',f:'capabilities.drop / add'},
+ {e:'🚪',t:'No new privileges',who:'Can it get a better badge?',an:'The sign on the revolving door: no badge upgrades.',gt:'Sets the kernel no_new_privs flag so setuid bits and file capabilities cannot raise privileges.',f:'allowPrivilegeEscalation: false'},
+ {e:'🗄️',t:'Filesystem',who:'Where may it write?',an:'Locked cabinets, plus one writable drawer.',gt:'A read-only root filesystem plus volumes the app may write to.',f:'readOnlyRootFilesystem, volumes, fsGroup'},
+ {e:'🕴️',t:'seccomp',who:'Which requests will the kernel accept?',an:'A short list of allowed kinds of requests.',gt:'Filters system calls. RuntimeDefault blocks a few dozen dangerous ones.',f:'seccompProfile'},
+ {e:'🏷️',t:'AppArmor / SELinux',who:'Which resources may it touch?',an:'Room-specific rules for each team.',gt:'Mandatory access control profiles: path-based (AppArmor) or label-based (SELinux).',f:'appArmorProfile, seLinuxOptions'},
+ {e:'🏠',t:'Namespaces',who:'What can it see and who is it really?',an:'A private office that translates your badge number for the rest of the building.',gt:'Linux namespaces isolate processes, network and mounts. A user namespace maps container root to an unprivileged host user.',f:'hostUsers: false (and keep hostPID/hostNetwork off)'},
+ {e:'🏛️',t:'The kernel',who:'The one that really enforces everything',an:'The building itself, checking every door.',gt:'All the layers above are enforced by the shared host kernel. A kernel bug can bypass them, so keep nodes patched.',f:'(node patching, hardened OS, sandbox runtimes)'}
+];
+const JOURNEY=[
+ {a:[0],t:'<b>1. You apply the YAML.</b> <code>kubectl apply -f web-pod.yaml</code> sends the pod, with its securityContext, to the API server.'},
+ {a:[1],t:'<b>2. Front desk: who are you?</b> The API server checks your identity and whether you may create pods in this namespace (authentication and RBAC).'},
+ {a:[1],t:'<b>3. Inspectors check the rules.</b> Pod Security Admission and any policy engine look at the securityContext. A privileged pod in a <code>restricted</code> namespace stops here with a "Forbidden" error.'},
+ {a:[1],t:'<b>4. A floor is chosen.</b> The scheduler picks a node. Note that user namespaces need a node that supports them.'},
+ {a:[2],t:'<b>5. The building manager double-checks.</b> The kubelet verifies <code>runAsNonRoot</code>. A name-only image user, or UID 0, fails here with <code>CreateContainerConfigError</code>.'},
+ {a:[3],t:'<b>6. The contractor builds the floor.</b> The container runtime sets the UID/GID, capability sets, <code>no_new_privs</code>, seccomp, AppArmor/SELinux and the namespaces, then starts the process.'},
+ {a:[4],t:'<b>7. The building enforces it forever.</b> On every system call the kernel checks the badge, the keycards and the filters. Nothing is asked of Kubernetes again.'}
+];
+const JACTORS=[['🙋','You'],['🛂','Front desk (API server)'],['🧑‍💼','Manager (kubelet)'],['🧰','Contractor (runtime)'],['🏛️','Building (kernel)']];
+
+/* ---------- tab 6 fields ---------- */
+const FIELDS=[
+ {n:'runAsUser',l:'both',what:'The numeric UID the container process runs as.',ex:'runAsUser: 10001',dk:'--user 10001',pss:'Restricted: must not be 0.'},
+ {n:'runAsGroup',l:'both',what:'The primary GID of the process.',ex:'runAsGroup: 10001',dk:'--user 10001:10001',pss:'No rule.'},
+ {n:'runAsNonRoot',l:'both',what:'Make the kubelet refuse to start a container that would run as UID 0.',ex:'runAsNonRoot: true',dk:'(no flag)',pss:'Restricted: must be true (pod or container).'},
+ {n:'seccompProfile',l:'both',what:'Which seccomp profile filters system calls.',ex:'seccompProfile:\n  type: RuntimeDefault',dk:'--security-opt seccomp=...',pss:'Baseline: not Unconfined. Restricted: RuntimeDefault or Localhost.'},
+ {n:'appArmorProfile',l:'both',what:'Which AppArmor profile restricts the container (generally available since v1.30).',ex:'appArmorProfile:\n  type: RuntimeDefault',dk:'--security-opt apparmor=...',pss:'Baseline checks that AppArmor is not set to something unsafe.'},
+ {n:'seLinuxOptions',l:'both',what:'SELinux labels for the container.',ex:'seLinuxOptions:\n  level: "s0:c123,c456"',dk:'--security-opt label=...',pss:'Baseline: type, user and role are restricted.'},
+ {n:'fsGroup',l:'pod',what:'A group that owns supported volumes, added to every container.',ex:'fsGroup: 10001',dk:'(volume permissions)',pss:'No rule.'},
+ {n:'fsGroupChangePolicy',l:'pod',what:'When to change volume ownership: Always or OnRootMismatch (faster on big volumes).',ex:'fsGroupChangePolicy: OnRootMismatch',dk:'(no flag)',pss:'No rule.'},
+ {n:'supplementalGroups',l:'pod',what:'Extra groups for the process.',ex:'supplementalGroups: [4000]',dk:'--group-add 4000',pss:'No rule.'},
+ {n:'supplementalGroupsPolicy',l:'pod',what:'Merge (default) adds the user\'s groups from /etc/group in the image. Strict uses only the groups you list. A newer field, so check your version.',ex:'supplementalGroupsPolicy: Strict',dk:'(no flag)',pss:'No rule.'},
+ {n:'sysctls',l:'pod',what:'Kernel settings for the pod. Only a safe set is allowed by default.',ex:'sysctls:\n- name: net.ipv4.ip_unprivileged_port_start\n  value: "0"',dk:'--sysctl',pss:'Baseline: only the safe sysctls.'},
+ {n:'capabilities',l:'ctr',what:'Capabilities to drop or add.',ex:'capabilities:\n  drop: ["ALL"]\n  add: ["NET_BIND_SERVICE"]',dk:'--cap-drop / --cap-add',pss:'Baseline: limited add list. Restricted: drop ALL; add only NET_BIND_SERVICE.'},
+ {n:'privileged',l:'ctr',what:'Give the container all capabilities and host devices.',ex:'privileged: true',dk:'--privileged',pss:'Baseline: must be false or unset.'},
+ {n:'allowPrivilegeEscalation',l:'ctr',what:'Whether a process may gain more privileges than its parent. Defaults to true.',ex:'allowPrivilegeEscalation: false',dk:'--security-opt no-new-privileges',pss:'Restricted: must be false.'},
+ {n:'readOnlyRootFilesystem',l:'ctr',what:'Mount the container\'s root filesystem read-only.',ex:'readOnlyRootFilesystem: true',dk:'--read-only',pss:'No rule, but a strong habit.'},
+ {n:'procMount',l:'ctr',what:'How much of /proc is visible. Leave it at Default.',ex:'procMount: Default',dk:'(no flag)',pss:'Baseline: must be Default.'}
+];
+const LV={pod:'Pod level only',ctr:'Container level only',both:'Both levels'};
+
+/* ---------- tab 13 ---------- */
+const SYMPTOMS=[
+ {s:'Pod stuck in CreateContainerConfigError: "image will run as root"',c:'runAsNonRoot is true, but the image has no USER line (or USER 0).',f:'Add USER 1000 to the Dockerfile, or set <code>runAsUser: 10001</code> in the pod.',cmd:'kubectl describe pod web-pod'},
+ {s:'"image has non-numeric user (appuser), cannot verify user is non-root"',c:'The image uses a user <i>name</i>. The kubelet can only verify numbers.',f:'Use a numeric <code>USER 1000</code> in the Dockerfile or set <code>runAsUser</code> in the pod.',cmd:'kubectl describe pod web-pod'},
+ {s:'Permission denied when writing to a volume',c:'The volume is owned by root (or another group) and the process is non-root.',f:'Set <code>fsGroup</code> on the pod. Check that the volume type and CSI driver support it. For big volumes add <code>fsGroupChangePolicy: OnRootMismatch</code>.',cmd:'kubectl exec web-pod -- ls -ld /data'},
+ {s:'"Read-only file system" errors',c:'<code>readOnlyRootFilesystem: true</code> and the app writes to the image filesystem (for example <code>/tmp</code>, a cache or a pid file).',f:'Mount an <code>emptyDir</code> at each writable path, or configure the app to write only to volumes.',cmd:'kubectl exec web-pod -- sh -c "mount | grep \' / \'"'},
+ {s:'"bind: permission denied" on port 80',c:'Ports below 1024 need <code>NET_BIND_SERVICE</code>, and a non-root process has no active capabilities.',f:'Listen on 8080 and let the Service map 80. Or set the pod sysctl <code>net.ipv4.ip_unprivileged_port_start: 0</code>.',cmd:'kubectl exec web-pod -- grep Cap /proc/1/status'},
+ {s:'"Operation not permitted" for ping or a network tool',c:'<code>NET_RAW</code> was dropped (as it should be). Or you added a capability to a non-root container, where it is not active.',f:'Prefer a TCP/HTTP health check. If you really need it, run as root with only that capability added, or use a binary with file capabilities (not with allowPrivilegeEscalation: false).',cmd:'capsh --decode=<CapEff>'},
+ {s:'Pod rejected: violates PodSecurity "restricted:latest"',c:'The namespace enforces <code>restricted</code> and the pod is missing one or more required settings.',f:'Read the message. Add <code>runAsNonRoot</code>, <code>allowPrivilegeEscalation: false</code>, <code>drop: ["ALL"]</code> and <code>seccompProfile: RuntimeDefault</code>. A Deployment may look fine while its ReplicaSet fails, so check ReplicaSet events.',cmd:'kubectl describe rs -l app=web'},
+ {s:'sudo, su or a setuid program stopped working',c:'<code>allowPrivilegeEscalation: false</code> sets no_new_privs, so setuid bits are ignored.',f:'That is the intended behaviour. Do the privileged setup at image build time and run the app as a normal user.',cmd:'kubectl exec web-pod -- grep NoNewPrivs /proc/1/status'},
+ {s:'Capability added in YAML but CapEff is all zeros',c:'The container runs as non-root. A non-root process starts with no effective capabilities.',f:'Redesign so the app does not need the capability, or run as root with <code>drop: ["ALL"]</code> and add only what is needed.',cmd:'kubectl exec web-pod -- grep Cap /proc/1/status'},
+ {s:'API says allowPrivilegeEscalation cannot be false',c:'You combined it with <code>privileged: true</code> or the <code>SYS_ADMIN</code> capability.',f:'Remove privileged, or drop the need for SYS_ADMIN.',cmd:'kubectl apply --dry-run=server -f pod.yaml'},
+ {s:'Pod with hostUsers: false will not start',c:'The node may lack support: a new enough kernel, container runtime and filesystem idmap mounts. Or the pod also sets hostNetwork, hostPID or hostIPC.',f:'Check the node requirements in tab 10, schedule the pod onto supporting nodes, and remove the host namespace settings.',cmd:'kubectl describe pod userns'},
+ {s:'Works with docker run but fails in Kubernetes restricted namespace',c:'Docker does not require runAsNonRoot, dropped capabilities or seccomp. The Pod Security level does.',f:'Test the container locally with <code>--user 10001 --cap-drop ALL --read-only --security-opt no-new-privileges</code> before deploying.',cmd:'docker run --rm --user 10001 --cap-drop ALL --read-only --security-opt no-new-privileges myimage'}
+];
+
+/* ---------- quiz, checklist, cheat sheet ---------- */
+const QUIZ=[
+ {q:'What does the kernel see when it checks who a process is?',o:['The user name','A numeric UID and GID','The image name'],a:1,w:'Names are only labels looked up in /etc/passwd.'},
+ {q:'A Dockerfile says USER appuser. The pod sets runAsNonRoot: true. What happens?',o:['It runs as appuser','It fails: the kubelet cannot verify a name is non-root','It runs as root'],a:1,w:'Use a numeric USER or set runAsUser in the pod.'},
+ {q:'Pod-level runAsUser is 2000 and container-level is 3000. Which UID is used?',o:['2000','3000','The image USER'],a:1,w:'Container-level settings win.'},
+ {q:'How many capabilities does Docker or containerd grant a root container by default?',o:['All of them','14','None'],a:1,w:'A default set of 14. Dangerous ones such as SYS_ADMIN and NET_ADMIN are left out.'},
+ {q:'A root container sets drop: ["ALL"] and add: ["NET_BIND_SERVICE"]. What does it keep?',o:['Only NET_BIND_SERVICE','The 14 defaults plus NET_BIND_SERVICE','Nothing'],a:0,w:'Drop ALL empties the lanyard, then add puts back one card.'},
+ {q:'A non-root container "adds" NET_ADMIN. What is CapEff?',o:['NET_ADMIN is active','All zeros: effective capabilities are cleared for non-root','All capabilities'],a:1,w:'Kubernetes does not give ambient capabilities, so a non-root process starts with no effective ones.'},
+ {q:'Where can you set capabilities in a pod spec?',o:['Pod level only','Container level only','Either level'],a:1,w:'Capabilities are only accepted in the container-level securityContext.'},
+ {q:'Which field is a pod-level field only?',o:['capabilities','fsGroup','privileged'],a:1,w:'fsGroup, supplementalGroups and sysctls are pod-level.'},
+ {q:'What does allowPrivilegeEscalation: false set in the kernel?',o:['seccomp','no_new_privs','read-only root'],a:1,w:'The kernel flag no_new_privs (the value is inverted).'},
+ {q:'allowPrivilegeEscalation is not set. What is the default?',o:['false','true','It depends on the image'],a:1,w:'The default is true, which is why you should set it to false.'},
+ {q:'Why can a non-root web server not bind port 80 even with NET_BIND_SERVICE added?',o:['Ports are blocked by default','Non-root has no active capabilities','Port 80 is reserved for root only by Kubernetes'],a:1,w:'Use port 8080, or the net.ipv4.ip_unprivileged_port_start sysctl.'},
+ {q:'Your app fails with "Read-only file system" after hardening. Best fix?',o:['Remove readOnlyRootFilesystem','Mount an emptyDir where it writes','Run as root'],a:1,w:'Keep the root filesystem read-only and give the app a writable volume.'},
+ {q:'A volume is owned by root and your non-root pod cannot write. What do you set?',o:['privileged: true','fsGroup on the pod','runAsNonRoot: false'],a:1,w:'fsGroup gives the volume a group your process belongs to (if the volume type supports it).'},
+ {q:'Which seccomp profile type does the restricted Pod Security level require?',o:['Unconfined','RuntimeDefault or Localhost','Any profile'],a:1,w:'Unconfined fails baseline and restricted.'},
+ {q:'A pod runs privileged: true. What seccomp profile applies?',o:['RuntimeDefault','Unconfined','A custom one'],a:1,w:'Privileged containers always run Unconfined.'},
+ {q:'Which setting is closest to root on the node?',o:['allowPrivilegeEscalation: true','privileged: true','runAsUser: 0'],a:1,w:'Privileged grants every capability and host device access.'},
+ {q:'What does hostUsers: false do?',o:['Blocks all users','Gives the pod a user namespace so container root maps to an unprivileged host user','Hides the pod from the API'],a:1,w:'Stable since v1.36 and set per pod.'},
+ {q:'Can a pod use hostUsers: false together with hostNetwork: true?',o:['Yes','No'],a:1,w:'Host namespaces cannot be combined with a user namespace.'},
+ {q:'Which Pod Security level is the strictest?',o:['privileged','baseline','restricted'],a:2,w:'Restricted follows current hardening best practice.'},
+ {q:'A namespace has enforce=baseline, audit=restricted, warn=restricted. A pod fails restricted but passes baseline. What happens?',o:['It is rejected','It is created, with a warning and an audit annotation','Nothing is reported'],a:1,w:'Only enforce rejects.'},
+ {q:'Does Pod Security Admission stop pods that are already running when you tighten a label?',o:['Yes, immediately','No, it checks pods on create and update','Only privileged ones'],a:1,w:'Existing pods keep running. New and updated pods must comply.'},
+ {q:'Which is NOT on the baseline allowed list for capabilities.add?',o:['CHOWN','NET_RAW','NET_BIND_SERVICE'],a:1,w:'The baseline list leaves out NET_RAW. Restricted allows only NET_BIND_SERVICE.'},
+ {q:'Which is the best first step to roll out Pod Security Admission?',o:['Set enforce=restricted everywhere','Set warn and audit first, fix manifests, then enforce','Disable it'],a:1,w:'Warn and audit show what would break before anything is rejected.'},
+ {q:'In /proc/1/status, NoNewPrivs: 1 means…',o:['Privileged mode','allowPrivilegeEscalation is false','Read-only filesystem'],a:1,w:'no_new_privs is set.'},
+ {q:'Why is a seccomp filter a useful second lock?',o:['It replaces users','It limits which system calls the process can make even if it holds a capability','It encrypts traffic'],a:1,w:'It works in addition to capabilities and file permissions.'}
+];
+const CHECKLIST=[
+ 'Containers run as a non-root numeric user (runAsNonRoot: true, runAsUser set)',
+ 'allowPrivilegeEscalation: false on every container',
+ 'capabilities drop ["ALL"], and only needed ones added back',
+ 'seccompProfile: RuntimeDefault (or Localhost) on every pod',
+ 'readOnlyRootFilesystem: true, with emptyDir for scratch space',
+ 'No privileged containers outside a few named system namespaces',
+ 'No hostPID, hostNetwork, hostIPC or broad hostPath volumes in app namespaces',
+ 'Pod Security Admission labels on every namespace (warn and audit first, then enforce)',
+ 'A policy engine or ValidatingAdmissionPolicy for rules PSA cannot express',
+ 'automountServiceAccountToken: false where the app does not call the API',
+ 'User namespaces (hostUsers: false) used where nodes support them',
+ 'Images pinned by tag or digest, scanned, and built to run as non-root',
+ 'Nodes and the container runtime are patched regularly',
+ 'Manifests are scanned in CI (for example kube-linter, Kubescape or Trivy)'
+];
+const CHEAT=[
+ ['🏢 Building','Node kernel','The shared Linux kernel that enforces every rule'],
+ ['🏬 Floor','Container','A process with an isolated view of files, network and processes'],
+ ['👥 Team','Pod','One or more containers that share a network and volumes'],
+ ['🪪 Badge number','UID / GID','The numeric user and group of a process'],
+ ['🧑‍💼 Manager','root (UID 0)','The user the kernel trusts most'],
+ ['🔑 Keycard','Capability','One slice of root power (about 40 of them)'],
+ ['👜 Lanyard','Capability sets','Bounding, permitted, effective, inheritable, ambient'],
+ ['🚪 Revolving door','setuid / privilege escalation','A program that briefly runs with another user\'s badge'],
+ ['🪧 "No upgrades" sign','allowPrivilegeEscalation: false','Sets no_new_privs so badges cannot be upgraded'],
+ ['🗄️ Locked cabinets','readOnlyRootFilesystem','Image filesystem cannot be written to'],
+ ['🧺 Shared drawer','emptyDir / volume','A place the app may write'],
+ ['🏷️ Team sticker','fsGroup','A group that owns supported volumes'],
+ ['🕴️ Bouncer list','seccomp','Filters which system calls the process may make'],
+ ['🏷️ Room rules','AppArmor / SELinux','Mandatory access control profiles'],
+ ['🏠 Private office','User namespace (hostUsers: false)','Container root maps to an unprivileged host user'],
+ ['🛂 Front desk','Admission control','Checks pods before they run'],
+ ['🕵️ Inspectors','Pod Security Standards / PSA','Privileged, baseline and restricted levels'],
+ ['📋 Custom checklist','Policy engine / VAP','Field-level rules: CEL, Kyverno, Gatekeeper'],
+ ['💥 Walls knocked down','privileged / host namespaces / hostPath','Settings that break container isolation']
+];
+//PURE-END
+if(typeof module!=='undefined')module.exports={CAPS,CAPN,BASELINE_ADD,capHex,decodeHex,mkState,granted,capView,effRoot,grantedNames,evalPlay,pssEval,modeOutcome,dockerCmd,k8sYaml,nonRootCheck,precedence,setuidEval,writeCheck,SYSCALLS,syscallEval,RISKS,riskEval,usernsMap,LAYERS,JOURNEY,FIELDS,SYMPTOMS,QUIZ,CHECKLIST,CHEAT,DFS,RUNS,ACTIONS};
+
+/* ======================= UI ======================= */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!==undefined)e.innerHTML=html;return e;};
+const badge=(ok,yes,no)=>'<span class="badge '+(ok?'b-ok':'b-no')+'">'+(ok?(yes||'Yes'):(no||'No'))+'</span>';
+
+/* ---------- tabs ---------- */
+const TABS=[['1','The Building'],['2','Badges'],['3','Choosing a Badge'],['4','Keycards'],['5','Docker'],['6','The Rule Form'],['7','Doors & Cabinets'],['8','Bouncers'],['9','Break-outs'],['10','Private Offices'],['11','Inspectors'],['12','Build It'],['13','When It Breaks'],['14','Quiz & Cheat Sheet']];
+const tabsEl=$('#tabs');
+TABS.forEach(([n,l])=>{
+  const b=el('button','',n+'. '+esc(l));b.type='button';b.setAttribute('role','tab');b.dataset.t='p'+n;b.setAttribute('aria-selected','false');
+  b.addEventListener('click',()=>{showTab('p'+n);window.scrollTo({top:0,behavior:'smooth'});});tabsEl.appendChild(b);
+});
+function showTab(id){
+  $$('.page').forEach(p=>p.classList.toggle('on',p.id===id));
+  $$('#tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.t===id)));
+  try{history.replaceState(null,'','#tab-'+id.slice(1));}catch(e){}
+}
+
+/* ---------- helpers ---------- */
+function radios(host,name,items,cur,cb){
+  host.innerHTML='';
+  items.forEach(it=>{
+    const l=el('label','opt');const i=document.createElement('input');i.type='radio';i.name=name;i.value=it.v;i.checked=String(it.v)===String(cur);
+    i.addEventListener('change',()=>cb(it.v));
+    const t=el('span','',it.label+(it.sub?'<small>'+it.sub+'</small>':''));l.append(i,t);host.append(l);
+  });
+}
+function renderLanyard(host,s,opts){
+  opts=opts||{};host.innerHTML='';
+  (opts.list||CAPS).forEach(c=>{
+    const v=opts.view?opts.view(c):capView(s,c);
+    const interactive=!!opts.onClick;const b=document.createElement(interactive?'button':'div');
+    if(interactive)b.type='button';
+    b.className='cap '+v.cls+(opts.selected===c.n?' sel':'');b.dataset.n=c.n;b.title=c.what;
+    b.setAttribute('aria-label',c.n+', '+v.label);b.innerHTML='<b>'+c.n+'</b><span>'+v.label+'</span>';
+    if(interactive&&!opts.locked)b.addEventListener('click',()=>opts.onClick(c));
+    if(interactive&&opts.locked)b.setAttribute('aria-disabled','true');
+    host.append(b);
+  });
+  if(opts.focusName){const f=host.querySelector('[data-n="'+opts.focusName+'"]');if(f)f.focus();}
+}
+function stepper(o){
+  let i=0,timer=null;
+  const dots=$(o.dots);dots.innerHTML='';
+  o.steps.forEach((s,n)=>{const d=el('button','dot',String(n+1));d.type='button';d.setAttribute('aria-label','Step '+(n+1));d.addEventListener('click',()=>{i=n;draw();});dots.appendChild(d);});
+  function draw(){
+    [...dots.children].forEach((d,n)=>{d.className='dot'+(n===i?' on':(n<i?' done':''));});
+    $(o.text).innerHTML=o.steps[i].t;
+    if(o.actors)[...$(o.actors).children].forEach((a,n)=>a.classList.toggle('lit',(o.steps[i].a||[]).includes(n)));
+    $(o.prev).disabled=i===0;$(o.next).disabled=i===o.steps.length-1;
+  }
+  $(o.prev).addEventListener('click',()=>{if(i>0){i--;draw();}});
+  $(o.next).addEventListener('click',()=>{if(i<o.steps.length-1){i++;draw();}});
+  if(o.play)$(o.play).addEventListener('click',()=>{clearInterval(timer);i=0;draw();timer=setInterval(()=>{if(i<o.steps.length-1){i++;draw();}else clearInterval(timer);},2400);});
+  draw();
+}
+
+/* ---------- 1. layers + journey ---------- */
+let layerSel=0;
+function drawLayers(){
+  const host=$('#w-layers');host.innerHTML='';
+  LAYERS.forEach((l,i)=>{const b=el('button','layer'+(i===layerSel?' sel':''),'<b>'+(i+1)+'.</b> '+l.e+' '+esc(l.t));b.type='button';b.addEventListener('click',()=>{layerSel=i;drawLayers();});host.appendChild(b);});
+  const l=LAYERS[layerSel];
+  $('#w-layer-detail').innerHTML='<h3 style="margin-top:0">'+l.e+' '+esc(l.t)+'</h3><p><b>The question it answers:</b> '+esc(l.who)+'</p><p><b>🎯 Analogy.</b> '+esc(l.an)+'</p><p><b>🧓 Grown-up term:</b> '+esc(l.gt)+'</p><p>Where you set it: <code>'+esc(l.f)+'</code></p>';
+}
+drawLayers();
+$('#j-actors').innerHTML=JACTORS.map(a=>'<div class="actor"><span class="em">'+a[0]+'</span>'+esc(a[1])+'</div>').join('');
+stepper({dots:'#j-dots',text:'#j-text',prev:'#j-prev',next:'#j-next',play:'#j-play',actors:'#j-actors',steps:JOURNEY});
+
+/* ---------- 2. users ---------- */
+const USERS=[{uid:0,label:'root (UID 0)',id:'uid=0(root) gid=0(root) groups=0(root)'},{uid:1000,label:'appuser (UID 1000)',id:'uid=1000(appuser) gid=1000(appuser) groups=1000(appuser)'},{uid:2000,label:'guest (UID 2000)',id:'uid=2000(guest) gid=2000(guest) groups=2000(guest)'}];
+const FILES=[
+ {path:'/etc/shadow',ls:'-rw------- 1 root root',owner:0,oR:1,oW:1,xR:0,xW:0},
+ {path:'/app/config.yaml',ls:'-rw-r--r-- 1 appuser appuser',owner:1000,oR:1,oW:1,xR:1,xW:0},
+ {path:'/data/report.csv',ls:'-rw------- 1 appuser appuser',owner:1000,oR:1,oW:1,xR:0,xW:0}
+];
+let u1=1000;
+function drawUsers(){
+  radios($('#w-users'),'u1',USERS.map(u=>({v:u.uid,label:u.label})),u1,v=>{u1=Number(v);drawUsers();});
+  let nr=0,nw=0;
+  $('#w-users-out').innerHTML=FILES.map(f=>{
+    let r,w,why;
+    if(u1===0){r=1;w=1;why=f.owner===0?'root owns this file.':'Root skips permission checks (the DAC_OVERRIDE capability, tab 4).';}
+    else if(u1===f.owner){r=f.oR;w=f.oW;why='Owner permissions apply.';}
+    else{r=f.xR;w=f.xW;why='Not the owner, so the "others" permissions apply.';}
+    nr+=r;nw+=w;
+    return'<tr><td><code>'+f.path+'</code><br><span class="small muted">'+f.ls+'</span></td><td>'+badge(r)+'</td><td>'+badge(w)+'</td><td class="small">'+why+'</td></tr>';
+  }).join('');
+  $('#u-r').textContent=nr;$('#u-w').textContent=nw;
+  $('#w-users-id').textContent='$ id  →  '+USERS.find(u=>u.uid===u1).id;
+}
+drawUsers();
+
+/* ---------- 3. Dockerfile + nonroot ---------- */
+let dfSel='A',runSel='none';
+function drawDf(){
+  radios($('#w-df'),'df',Object.entries(DFS).map(([k,v])=>({v:k,label:v.label,sub:v.sub})),dfSel,v=>{dfSel=v;drawDf();});
+  radios($('#w-run'),'run',Object.entries(RUNS).map(([k,v])=>({v:k,label:'<code>'+v.label+'</code>',sub:v.sub})),runSel,v=>{runSel=v;drawDf();});
+  const d=DFS[dfSel],r=RUNS[runSel],res=runSel==='none'?d:r;
+  $('#w-df-out').textContent=d.text;$('#w-cmd-out').textContent='docker run --rm '+r.flag+'myimage id';
+  $('#w-id-out').textContent='$ id\n'+res.id;
+  const b=$('#w-df-banner');b.className=res.uid===0?'bad':'good';b.textContent=res.uid===0?'Runs as root (UID 0).':'Runs as non-root (UID '+res.uid+').';
+  $('#w-df-note').textContent=runSel==='none'?d.note:r.note;
+}
+drawDf();
+function drawNr(){
+  const r=nonRootCheck($('#n-img').value,$('#n-uid').value,$('#n-nr').checked);
+  $('#n-yaml').textContent='# image: '+r.imgTxt+'\n'+r.yaml;
+  const o=$('#n-out');o.className=r.ok?'good':'bad';o.textContent=(r.ok?'✅ ':'❌ ')+r.msg;$('#n-why').textContent=r.why;
+}
+['n-img','n-uid','n-nr'].forEach(id=>$('#'+id).addEventListener('change',drawNr));drawNr();
+
+/* ---------- 4. capabilities ---------- */
+let capFilter='all',capSel='NET_BIND_SERVICE';
+function drawCaps(focus){
+  const list=CAPS.filter(c=>capFilter==='all'||(capFilter==='def'&&c.d)||(capFilter==='nodef'&&!c.d)||(capFilter==='high'&&c.risk==='high'));
+  renderLanyard($('#w-lan3'),null,{list,view:c=>c.d?{cls:'on',label:'default'}:{cls:'off',label:'not default'},selected:capSel,focusName:focus,onClick:c=>{capSel=c.n;drawCaps(c.n);}});
+  const c=CAPN[capSel];
+  $('#w-cap-detail').innerHTML='<p><code>'+c.n+'</code> (bit '+c.b+') <span class="badge b-'+c.risk+'">'+RISK[c.risk]+'</span> <span class="badge '+(c.d?'b-ok':'b-med')+'">'+(c.d?'In the default set':'Not in the default set')+'</span></p><p>'+esc(c.what)+'</p><p class="small muted">Example: <code>'+esc(c.ex)+'</code></p>';
+}
+$$('[data-capf]').forEach(b=>b.addEventListener('click',()=>{capFilter=b.dataset.capf;$$('[data-capf]').forEach(x=>x.classList.toggle('sel',x===b));drawCaps();}));
+drawCaps();
+function drawHex(){
+  const r=decodeHex($('#w-hex').value);
+  if(r.error){$('#w-hex-err').textContent=r.error;$('#w-hex-out').innerHTML='';$('#w-hex-n').textContent='0';return;}
+  $('#w-hex-err').textContent='';$('#w-hex-n').textContent=r.names.length;
+  renderLanyard($('#w-hex-out'),null,{list:CAPS,view:c=>r.names.includes(c.n)?{cls:'on',label:'held'}:{cls:'off',label:'—'}});
+  if(r.unknown)$('#w-hex-out').insertAdjacentHTML('beforeend','<p class="small muted">'+r.unknown+' bit(s) are set that this page does not know (newer kernel capabilities).</p>');
+}
+$('#w-hex').addEventListener('input',drawHex);$$('[data-hex]').forEach(b=>b.addEventListener('click',()=>{$('#w-hex').value=b.dataset.hex;drawHex();}));drawHex();
+
+/* ---------- 5. docker flags ---------- */
+const P4={
+ def:{label:'docker run ubuntu',s:mkState(),note:'The default set of 14 capabilities. Powerful cards such as NET_ADMIN and SYS_ADMIN stay off.'},
+ kill:{label:'docker run --cap-drop KILL ubuntu',s:mkState({drop:['KILL']}),note:'KILL is removed. Processes here can no longer signal processes owned by other users.'},
+ mac:{label:'docker run --cap-add SYS_TIME ubuntu',s:mkState({add:['SYS_TIME']}),note:'SYS_TIME is added on top of the defaults. This process can now set the node clock. SYS_ADMIN and NET_ADMIN are still off.'},
+ min:{label:'docker run --cap-drop ALL --cap-add NET_BIND_SERVICE ubuntu',s:mkState({dropAll:true,add:['NET_BIND_SERVICE']}),note:'The hardening pattern: remove everything, add back only what the app needs.'},
+ priv:{label:'docker run --privileged ubuntu',s:mkState({priv:true}),note:'Every capability, plus access to host devices. Treat it as root on the host.'}
+};
+let p4='def';
+function draw4(){
+  radios($('#w-pre4'),'p4',Object.entries(P4).map(([k,v])=>({v:k,label:'<code>'+esc(v.label)+'</code>'})),p4,v=>{p4=v;draw4();});
+  const p=P4[p4],names=grantedNames(p.s);
+  $('#w-cmd4').textContent=p.label;renderLanyard($('#w-lan4'),p.s);$('#w-note4').textContent=p.note;
+  $('#w-n4').textContent=names.length;$('#w-hex4').textContent=capHex(names);
+}
+draw4();
+
+/* ---------- 6. fields + precedence ---------- */
+let fLevel='all',fSel='runAsUser';
+function drawFields(){
+  const host=$('#w-fields');host.innerHTML='';
+  FIELDS.filter(f=>fLevel==='all'||f.l===fLevel).forEach(f=>{
+    const b=el('button','layer'+(f.n===fSel?' sel':''),'<b><code>'+f.n+'</code></b> <span class="badge b-info">'+LV[f.l]+'</span>');b.type='button';
+    b.addEventListener('click',()=>{fSel=f.n;drawFields();});host.appendChild(b);
+  });
+  const f=FIELDS.find(x=>x.n===fSel);
+  $('#w-field-detail').innerHTML='<h3 style="margin-top:0"><code>'+f.n+'</code></h3><p><span class="badge b-info">'+LV[f.l]+'</span></p><p>'+esc(f.what)+'</p><pre><code>'+esc(f.ex)+'</code></pre><p class="small"><b>Docker:</b> <code>'+esc(f.dk)+'</code></p><p class="small"><b>Pod Security:</b> '+esc(f.pss)+'</p>';
+}
+$$('[data-ff]').forEach(b=>b.addEventListener('click',()=>{fLevel=b.dataset.ff;$$('[data-ff]').forEach(x=>x.classList.toggle('sel',x===b));if(fLevel!=='all'&&FIELDS.find(f=>f.n===fSel).l!==fLevel)fSel=FIELDS.find(f=>f.l===fLevel).n;drawFields();}));
+drawFields();
+function drawPrec(){
+  const img=$('#p-img').value,pod=$('#p-pod').value,ctr=$('#p-ctr').value;
+  let y='spec:\n';if(pod)y+='  securityContext:\n    runAsUser: '+pod+'\n';
+  y+='  containers:\n  - name: app\n    image: myimage\n';if(ctr)y+='    securityContext:\n      runAsUser: '+ctr+'\n';
+  $('#prec-yaml').textContent=y.trimEnd();
+  const r=precedence(img,pod,ctr),b=$('#prec-out');b.className=r.uid==='0'?'bad':'good';b.textContent='Effective UID: '+r.uid+'. '+r.src;
+}
+['p-img','p-pod','p-ctr'].forEach(id=>$('#'+id).addEventListener('change',drawPrec));drawPrec();
+
+/* ---------- 7. setuid + writes ---------- */
+function drawEsc(){const r=setuidEval($('#e-user').value,$('#e-esc').value);const o=$('#e-out');o.innerHTML=r.text;o.style.borderLeftColor=r.ok?'var(--green)':'var(--amber)';}
+['e-user','e-esc'].forEach(id=>$('#'+id).addEventListener('change',drawEsc));drawEsc();
+function drawFs(){
+  const rows=writeCheck({uid:$('#f-uid').value,cap:$('#f-cap').value,fsGroup:$('#f-fsg').value,roFs:$('#f-ro').checked});
+  $('#f-out').innerHTML=rows.map(r=>'<tr><td><code>'+esc(r.t.path)+'</code></td><td class="small mono">'+esc(r.t.own)+'</td><td>'+badge(r.ok,'Can write','Denied')+'<br><span class="small muted">'+esc(r.why)+'</span></td></tr>').join('');
+}
+['f-uid','f-cap','f-fsg','f-ro'].forEach(id=>$('#'+id).addEventListener('change',drawFs));drawFs();
+
+/* ---------- 8. syscalls ---------- */
+function drawSys(){
+  const rows=syscallEval($('#s-prof').value,$('#s-cap').value);
+  $('#s-out').innerHTML=rows.map(r=>'<tr><td><code>'+r.s.n+'</code><br><span class="small muted">'+esc(r.s.d)+'</span></td><td>'+badge(r.lock1,'Pass','Blocked')+(r.s.cap?'<br><span class="small muted">needs '+r.s.cap+'</span>':'<br><span class="small muted">no keycard needed</span>')+'</td><td>'+badge(r.lock2,'Pass','Blocked')+'</td><td>'+badge(r.ok,'Allowed','Denied')+'</td></tr>').join('');
+}
+['s-prof','s-cap'].forEach(id=>$('#'+id).addEventListener('change',drawSys));drawSys();
+
+/* ---------- 9. risks ---------- */
+const riskSel=new Set();
+(function(){
+  const host=$('#w-risks');
+  RISKS.forEach(r=>{
+    const l=el('label','opt');const i=document.createElement('input');i.type='checkbox';i.addEventListener('change',()=>{if(i.checked)riskSel.add(r.id);else riskSel.delete(r.id);drawRisk();});
+    l.append(i,el('span','','<code>'+esc(r.label)+'</code>'));host.appendChild(l);
+  });
+})();
+function drawRisk(){
+  const e=riskEval(riskSel);
+  $('#r-level').textContent=e.label;$('#r-n').textContent=e.items.length;
+  [...$('#r-meter').children].forEach((m,i)=>{m.className=i<e.level?'on'+e.level:'';});
+  if(!e.items.length){$('#r-out').innerHTML='<div class="good"><p>Nothing ticked. Tick a setting to see what it opens up and what to use instead.</p></div>';return;}
+  $('#r-out').innerHTML=e.combos.map(c=>'<div class="bad"><p>⚠️ <b>Combination:</b> '+esc(c)+'</p></div>').join('')+e.items.map(r=>'<div class="'+(r.w>=3?'bad':(r.w===2?'warn':'grownup'))+'"><p><b><code>'+esc(r.label)+'</code></b></p><p>'+esc(r.what)+'</p><p><b>✅ Instead:</b> '+esc(r.fix)+'</p></div>').join('');
+}
+drawRisk();
+
+/* ---------- 10. user namespaces ---------- */
+function drawNs(){
+  const on=$('#ns-on').checked,uid=$('#ns-uid').value,m=usernsMap(on,uid);
+  $('#ns-in').textContent='UID '+m.inside;$('#ns-host').textContent='UID '+m.host;
+  const o=$('#ns-out');
+  o.innerHTML=on?'The user namespace maps container UIDs <b>0 to 65535</b> onto a high range on the node (this lab pretends it starts at '+m.range.split(' ')[0]+'). Container root is <b>UID '+m.host+'</b> on the node: an ordinary, unprivileged user. If a process escapes, it lands as that user, and capabilities held inside the container do not apply on the host.<br><code>cat /proc/self/uid_map</code> → <code>0  '+m.range.split(' ')[0]+'  65536</code>':'<b>No user namespace.</b> Container UID '+m.inside+' is host UID '+m.host+'. Container root is root on the node. If a process escapes, it arrives as root.';
+  o.style.borderLeftColor=on?'var(--green)':'var(--red)';
+}
+['ns-on','ns-uid'].forEach(id=>$('#'+id).addEventListener('change',drawNs));drawNs();
+const NSREQ=['Linux nodes only','Linux kernel 6.3 or newer (tmpfs idmap mounts)','A filesystem for /var/lib/kubelet/pods that supports idmap mounts (for example ext4, xfs, btrfs, tmpfs, overlayfs)','runc 1.2 or newer, or crun 1.9 or newer (1.13+ recommended)','containerd 2.0 or newer, or CRI-O 1.25 or newer','Pods do not use hostNetwork, hostIPC or hostPID'];
+(function(){const host=$('#ns-req');NSREQ.forEach(t=>{const l=el('label','','<input type="checkbox"> <span>'+esc(t)+'</span>');$('input',l).addEventListener('change',()=>{$('#ns-ready').textContent=$$('input:checked',host).length;});host.appendChild(l);});})();
+
+/* ---------- 11. inspect ---------- */
+const IPRE={
+ 'Plain nginx (all defaults)':()=>mkState(),
+ 'Needs NET_ADMIN':()=>mkState({add:['NET_ADMIN']}),
+ 'Privileged + hostPID':()=>mkState({priv:true,hostPid:true}),
+ 'Hardened':()=>mkState({uid:'1000',nonRoot:true,noEsc:true,roFs:true,dropAll:true,seccomp:'RuntimeDefault'}),
+ 'Almost hardened (forgot seccomp)':()=>mkState({uid:'1000',nonRoot:true,noEsc:true,roFs:true,dropAll:true})
+};
+let iState=IPRE['Plain nginx (all defaults)']();
+const iModes={enforce:'baseline',audit:'restricted',warn:'restricted'};
+function drawInspect(){
+  $('#i-yaml').textContent=k8sYaml(iState);
+  const p=pssEval(iState),mo=modeOutcome(p.rank,iModes);
+  const lvl=(name,ok)=>'<span class="badge '+(ok?'b-ok':'b-no')+'">'+name+' '+(ok?'✓':'✗')+'</span> ';
+  let h='<p>'+lvl('Privileged',true)+lvl('Baseline',p.rank>=1)+lvl('Restricted',p.rank>=2)+'</p>';
+  const word={off:'off',pass:'passes',fail:'FAILS'};
+  h+='<ul class="small">'+['enforce','audit','warn'].map(k=>'<li><b>'+k+'</b> ('+(iModes[k]==='none'?'not set':iModes[k])+'): '+word[mo.out[k]]+'</li>').join('')+'</ul>';
+  if(mo.rejected){
+    const v=iModes.enforce==='baseline'?p.base:p.base.concat(p.rest);
+    h+='<div class="bad"><p><b>Rejected.</b></p><p class="mono">Error from server (Forbidden): pods "web-pod" is forbidden: violates PodSecurity "'+iModes.enforce+':latest": '+esc(v.join(', '))+'</p></div>';
+  }else{
+    const warns=[];
+    if(mo.out.warn==='fail')warns.push('a warning is shown to the user');
+    if(mo.out.audit==='fail')warns.push('an audit annotation is recorded');
+    h+='<div class="'+(warns.length?'warn':'good')+'"><p><b>Allowed.</b> '+(warns.length?'But '+warns.join(' and ')+'.':'No warnings.')+'</p></div>';
+    const all=(iModes.audit==='restricted'||iModes.warn==='restricted')?p.base.concat(p.rest):p.base;
+    if(warns.length&&all.length)h+='<p class="small muted">Would fail: '+esc(all.join('; '))+'</p>';
+  }
+  $('#i-out').innerHTML=h;
+}
+(function(){
+  const host=$('#i-presets');
+  Object.entries(IPRE).forEach(([n,f],i)=>{const b=el('button','btn'+(i===0?' sel':''),esc(n));b.type='button';b.addEventListener('click',()=>{iState=f();$$('.btn',host).forEach(x=>x.classList.toggle('sel',x===b));drawInspect();});host.appendChild(b);});
+  $$('[data-mode]').forEach(s=>s.addEventListener('change',()=>{iModes[s.dataset.mode]=s.value;drawInspect();}));
+})();
+drawInspect();
+stepper({dots:'#ro-dots',text:'#ro-text',prev:'#ro-prev',next:'#ro-next',steps:[
+ {t:'<b>1. Inventory.</b> List namespaces and which have no <code>pod-security.kubernetes.io/enforce</code> label: <code>kubectl get ns --selector=\'!pod-security.kubernetes.io/enforce\'</code>.'},
+ {t:'<b>2. Warn and audit at the target level.</b> Add <code>warn</code> and <code>audit</code> labels at <code>restricted</code>. Nothing is rejected yet.'},
+ {t:'<b>3. Read the findings.</b> Collect warnings from CI and the audit annotations. Group them: missing <code>runAsNonRoot</code>, no dropped capabilities, no seccomp profile.'},
+ {t:'<b>4. Fix the manifests and images.</b> Use numeric users, <code>drop: ["ALL"]</code>, <code>seccompProfile: RuntimeDefault</code>, and emptyDir for writable paths.'},
+ {t:'<b>5. Enforce at the highest level that passes.</b> Start with low-risk namespaces. Remember enforcement applies to Pods, so check ReplicaSet events if a rollout stalls.'},
+ {t:'<b>6. Pin versions and keep exemptions short.</b> Pin the policy version labels and review exemptions regularly.'}
+]});
+
+/* ---------- 12. playground ---------- */
+const PRESETS={
+ 'Default':()=>mkState(),
+ 'Root, drop all, add NET_BIND_SERVICE':()=>mkState({dropAll:true,add:['NET_BIND_SERVICE']}),
+ 'Hardened (restricted)':()=>mkState({uid:'1000',nonRoot:true,noEsc:true,roFs:true,dropAll:true,seccomp:'RuntimeDefault'}),
+ 'Privileged':()=>mkState({priv:true}),
+ 'hostPID + SYS_PTRACE':()=>mkState({hostPid:true,add:['SYS_PTRACE']})
+};
+let P=mkState();let focusCap=null;
+function toggleCap(c){
+  if(P.priv)return;
+  const set=(c.d&&!P.dropAll)?P.drop:P.add;
+  if(set.has(c.n))set.delete(c.n);else set.add(c.n);
+  focusCap=c.n;drawPg();
+}
+function drawPg(){
+  const s=P;
+  radios($('#pg-uid'),'pg-uid',[{v:'unset',label:'Not set',sub:'Use the image user (root for the ubuntu image)'},{v:'1000',label:'<code>runAsUser: 1000</code>'},{v:'0',label:'<code>runAsUser: 0</code>',sub:'Explicit root'}],s.uid,v=>{s.uid=v;drawPg();});
+  radios($('#pg-sec'),'pg-sec',[{v:'unset',label:'Not set',sub:'Unconfined unless the kubelet turns on seccomp default'},{v:'RuntimeDefault',label:'<code>RuntimeDefault</code>'},{v:'Unconfined',label:'<code>Unconfined</code>'}],s.seccomp,v=>{s.seccomp=v;drawPg();});
+  $('#pg-nonroot').checked=s.nonRoot;$('#pg-noesc').checked=s.noEsc;$('#pg-rofs').checked=s.roFs;$('#pg-priv').checked=s.priv;
+  $('#pg-huser').checked=!s.hostUsers;$('#pg-hnet').checked=s.hostNet;$('#pg-hpid').checked=s.hostPid;$('#pg-dropall').checked=s.dropAll;$('#pg-dropall').disabled=s.priv;
+  renderLanyard($('#lan6'),s,{onClick:toggleCap,locked:s.priv,focusName:focusCap});focusCap=null;
+  const e=evalPlay(s),b=$('#pg-banner');
+  $('#pg-caps').textContent=e.names.length;$('#pg-bnd').textContent=e.capBnd;$('#pg-eff').textContent=e.capEff;
+  const lvlTxt={privileged:'Privileged only (fails baseline)',baseline:'Baseline',restricted:'Restricted'}[e.pss.level];
+  $('#pg-level').textContent=lvlTxt;
+  $('#pg-escape').textContent=e.escape;
+  if(e.invalid){
+    b.className='bad';b.textContent='❌ '+e.invalid;$('#pg-n').textContent='0';
+    $('#pg-acts').innerHTML='<li><span class="badge b-no">Rejected</span><span>The pod is never created.</span></li>';
+  }else if(e.blocked){
+    b.className='bad';b.textContent='❌ '+e.blocked;$('#pg-n').textContent='0';
+    $('#pg-acts').innerHTML='<li><span class="badge b-no">Blocked</span><span>No container is running, so nothing can be done.</span></li>';
+  }else{
+    b.className=s.priv?'bad':(e.allowed<=4?'good':'warn');
+    b.textContent=(s.priv?'⚠️ Privileged: this container can act almost like root on the node. ':'')+e.allowed+' of '+ACTIONS.length+' actions are allowed. Running as '+(e.root?'root':'UID 1000')+'.';
+    $('#pg-n').textContent=e.allowed;
+    $('#pg-acts').innerHTML=e.rows.map(r=>'<li><span class="badge '+(r.ok?'b-ok':'b-no')+'">'+(r.ok?'Allowed':'Denied')+'</span><span>'+esc(r.a.label)+' <code>'+esc(r.a.cmd)+'</code></span><span class="why">'+esc(r.why)+'</span></li>').join('');
+  }
+  const p=e.pss;
+  $('#pg-pss').innerHTML='<p>'+['Baseline','Restricted'].map((n,i)=>'<span class="badge '+(p.rank>=i+1?'b-ok':'b-no')+'">'+n+' '+(p.rank>=i+1?'✓':'✗')+'</span>').join(' ')+'</p>'+
+    (p.rank===2?'<p class="small muted">No violations: this pod passes the restricted level.</p>':'<ul class="small">'+(p.base.length?p.base:p.rest).map(v=>'<li>'+esc(v)+'</li>').join('')+'</ul>'+(p.base.length&&p.rest.length?'<p class="small muted">(and '+p.rest.length+' more for restricted)</p>':''));
+  $('#pg-docker').textContent=dockerCmd(s);
+  const notes=[];
+  if(s.priv)notes.push('privileged overrides every capability setting and runs seccomp Unconfined.');
+  if(s.nonRoot)notes.push('runAsNonRoot has no Docker flag. It is a Kubernetes safety check.');
+  if(!s.hostUsers)notes.push('hostUsers: false is a Kubernetes pod field. Docker enables user namespaces at the daemon level.');
+  $('#pg-dnote').textContent=notes.join(' ');
+  $('#pg-yaml').textContent=k8sYaml(s);
+}
+[['pg-nonroot','nonRoot'],['pg-noesc','noEsc'],['pg-rofs','roFs'],['pg-priv','priv'],['pg-hnet','hostNet'],['pg-hpid','hostPid']].forEach(([id,k])=>$('#'+id).addEventListener('change',e=>{P[k]=e.target.checked;drawPg();}));
+$('#pg-huser').addEventListener('change',e=>{P.hostUsers=!e.target.checked;drawPg();});
+$('#pg-dropall').addEventListener('change',e=>{P.dropAll=e.target.checked;if(P.dropAll)P.drop.clear();else P.add=new Set([...P.add].filter(n=>!CAPN[n].d));drawPg();});
+Object.entries(PRESETS).forEach(([n,f])=>{const b=el('button','btn',esc(n));b.type='button';b.addEventListener('click',()=>{P=f();drawPg();});$('#pg-presets').appendChild(b);});
+drawPg();
+
+/* ---------- 13. symptoms ---------- */
+let symSel=-1;
+function drawSym(){
+  const host=$('#w-sym');host.innerHTML='';
+  SYMPTOMS.forEach((s,i)=>{const b=el('button','layer'+(i===symSel?' sel':''),esc(s.s));b.type='button';b.addEventListener('click',()=>{symSel=i;drawSym();});host.appendChild(b);});
+  if(symSel>=0){const s=SYMPTOMS[symSel];$('#w-sym-out').innerHTML='<p><b>🔎 Why it happens.</b> '+s.c+'</p><p><b>✅ Fix.</b> '+s.f+'</p><pre><code>'+esc(s.cmd)+'</code></pre>';}
+}
+drawSym();
+
+/* ---------- 14. quiz, checklist, cheat sheet ---------- */
+$('#quiz-total').textContent=QUIZ.length;
+function seeded(n){let t=(n*2654435761)>>>0;return()=>{t=(t+0x6D2B79F5)>>>0;let r=Math.imul(t^(t>>>15),1|t);r^=r+Math.imul(r^(r>>>7),61|r);return((r^(r>>>14))>>>0)/4294967296;};}
+const QORDER=QUIZ.map((x,i)=>{const idx=x.o.map((_,j)=>j),rnd=seeded(i+7);for(let k=idx.length-1;k>0;k--){const j=Math.floor(rnd()*(k+1));[idx[k],idx[j]]=[idx[j],idx[k]];}return idx;});
+$('#quiz').innerHTML=QUIZ.map((x,i)=>'<fieldset class="q" data-a="'+QORDER[i].indexOf(x.a)+'"><legend>'+(i+1)+'. '+esc(x.q)+'</legend>'+QORDER[i].map((orig,j)=>'<label class="opt"><input type="radio" name="q'+i+'" value="'+j+'"><span>'+esc(x.o[orig])+'</span></label>').join('')+'<p class="fb" id="fb'+i+'"></p></fieldset>').join('');
+$$('#quiz input').forEach(i=>i.addEventListener('change',()=>{$('#quiz-err').textContent='';}));
+$('#quiz-check').addEventListener('click',()=>{
+  const missing=QUIZ.map((_,i)=>$('input[name="q'+i+'"]:checked')?null:i+1).filter(Boolean);
+  if(missing.length){$('#quiz-err').textContent='Answer question'+(missing.length>1?'s ':' ')+missing.join(', ')+' first.';return;}
+  let score=0;
+  QUIZ.forEach((x,i)=>{const v=Number($('input[name="q'+i+'"]:checked').value),ok=v===QORDER[i].indexOf(x.a);if(ok)score++;$('#fb'+i).innerHTML='<span class="badge '+(ok?'b-ok':'b-no')+'">'+(ok?'Correct':'Not quite')+'</span> '+esc(x.w);});
+  $('#quiz-score').textContent=score;
+});
+(function(){
+  const host=$('#ck-list');
+  CHECKLIST.forEach(t=>{const l=el('label','','<input type="checkbox"> <span>'+esc(t)+'</span>');$('input',l).addEventListener('change',()=>{const n=$$('input:checked',host).length;$('#ck-bar').style.width=Math.round(n/CHECKLIST.length*100)+'%';$('#ck-out').textContent=n+' of '+CHECKLIST.length+' controls in place'+(n===CHECKLIST.length?'. Nice work: now test them with a failure drill.':'. The unticked ones are your next tasks.');});host.appendChild(l);});
+  $('#ck-out').textContent='0 of '+CHECKLIST.length+' controls in place.';
+})();
+$('#cheat').innerHTML=CHEAT.map(r=>'<tr><td>'+esc(r[0])+'</td><td><b>'+esc(r[1])+'</b></td><td>'+esc(r[2])+'</td></tr>').join('');
+
+/* ---------- copy buttons ---------- */
+$$('pre.cp').forEach(pre=>{
+  const b=el('button','copy','Copy');b.type='button';
+  b.addEventListener('click',async()=>{
+    const t=pre.querySelector('code').textContent;
+    try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(_){}ta.remove();}
+    b.textContent='Copied';setTimeout(()=>{b.textContent='Copy';},1300);
+  });
+  pre.appendChild(b);
+});
+
+/* ---------- start ---------- */
+const hm=(location.hash||'').match(/^#tab-([1-9]|1[0-4])$/);
+showTab(hm?'p'+hm[1]:'p1');
+
+})();
+</script>
+</body></html>
